@@ -10,6 +10,8 @@ const sharpPath = app.isPackaged
   : 'sharp'
 const sharp = require(sharpPath)
 
+const heicConvert = require('heic-convert')
+
 // ffmpeg-static binary path (unpacked from asar in production)
 const ffmpegStaticPath = app.isPackaged
   ? path.join(process.resourcesPath, 'app.asar.unpacked', 'node_modules', 'ffmpeg-static', 'ffmpeg')
@@ -122,7 +124,17 @@ function registerConvertHandlers() {
   ipcMain.handle('convert-file', async (_event, buffer, targetFormat, quality = 60, imageOptions = {}) => {
     const { width, height, fit, keepMetadata = true } = imageOptions
     const sharpFormat = normalizeFormat(targetFormat)
-    const buf = Buffer.from(buffer)
+    let buf = Buffer.from(buffer)
+
+    // HEIC/HEIF uses HEVC which sharp's prebuilt libheif omits — decode via heic-convert first.
+    // ftyp box is at bytes 4-7; major brand at 8-11 distinguishes HEIC from MP4/MOV.
+    const brand = buf.subarray(8, 12).toString('ascii')
+    const isHeic = buf.subarray(4, 8).toString('ascii') === 'ftyp' &&
+      (brand.startsWith('hei') || brand.startsWith('hev') || brand === 'mif1' || brand === 'msf1')
+    if (isHeic) {
+      buf = Buffer.from(await heicConvert({ buffer: buf, format: 'PNG', quality: 1 }))
+    }
+
     // SVG needs density (DPI) set at read time for proper rasterization.
     // Check the first 512 bytes to handle <?xml ...?> preambles and BOMs.
     const header = buf.subarray(0, 512).toString('utf8')
