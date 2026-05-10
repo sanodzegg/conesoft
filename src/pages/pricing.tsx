@@ -66,7 +66,7 @@ const PLANS = [
         icon: Zap,
         title: 'Pro',
         description: 'Billed monthly or annually',
-        price: { monthly: 4.99, annual: 3.99 },
+        price: { monthly: 8, annual: 6 },
         priceSuffix: '/mo',
         features: [
             'Unlimited conversions — no caps',
@@ -85,7 +85,7 @@ const PLANS = [
         icon: Star,
         title: 'Lifetime',
         description: 'Pay once, own it forever.',
-        price: 49,
+        price: 110,
         features: [
             'Everything in Pro, forever',
             'One-time payment, no renewals',
