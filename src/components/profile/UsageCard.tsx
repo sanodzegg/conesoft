@@ -1,4 +1,4 @@
-import { LIMITED_DAILY_LIMITS, getDailyCounts, getTrialScore, WEIGHTS } from '@/lib/useConversionCount'
+import { LIMITED_DAILY_LIMITS, getDailyCounts, getTrialScore, WEIGHTS, TOKEN_TOTAL } from '@/lib/useConversionCount'
 import type { ConversionCounts } from '@/lib/useConversionCount'
 import type { Plan } from '@/lib/useAuth'
 import { cn } from '@/lib/utils'
@@ -57,33 +57,35 @@ export function UsageCard({ plan, counts }: UsageCardProps) {
 
     if (isTrial) {
         const score = getTrialScore(counts)
+        const tokensUsed = Math.round(score * TOKEN_TOTAL)
         const scorePct = score * 100
         const rows = [
-            { label: 'Images', value: counts.image, weight: WEIGHTS.image, icon: Image },
-            { label: 'Documents', value: counts.document, weight: WEIGHTS.document, icon: FileText },
-            { label: 'Videos', value: counts.video, weight: WEIGHTS.video, icon: Video },
-            { label: 'Audio', value: counts.audio, weight: WEIGHTS.audio, icon: Music },
+            { label: 'Images', value: counts.image, cost: Math.round(WEIGHTS.image * TOKEN_TOTAL), icon: Image },
+            { label: 'Documents', value: counts.document, cost: Math.round(WEIGHTS.document * TOKEN_TOTAL), icon: FileText },
+            { label: 'Videos', value: counts.video, cost: Math.round(WEIGHTS.video * TOKEN_TOTAL), icon: Video },
+            { label: 'Audio', value: counts.audio, cost: Math.round(WEIGHTS.audio * TOKEN_TOTAL), icon: Music },
         ]
         return (
             <div className="rounded-2xl border border-border p-5 space-y-4">
                 <p className="text-sm font-medium text-muted-foreground uppercase tracking-wide">Usage</p>
-                <div className="grid grid-cols-2 gap-x-6 gap-y-3">
-                    {rows.map(({ label, value, icon: Icon }) => (
+                <div className="space-y-1.5">
+                    <div className="flex items-center justify-between">
+                        <p className="text-sm text-muted-foreground">Credits used</p>
+                        <p className="text-sm text-foreground tabular-nums">{tokensUsed} / {TOKEN_TOTAL}</p>
+                    </div>
+                    <UsageBar pct={scorePct} nearAt={85} fullAt={100} />
+                </div>
+                <div className="space-y-2">
+                    {rows.map(({ label, value, cost, icon: Icon }) => (
                         <div key={label} className="flex items-center justify-between">
                             <p className="text-sm text-muted-foreground flex items-center gap-1.5">
                                 <Icon className="size-4" />
                                 {label}
+                                <span className="text-xs">· {cost} cr each</span>
                             </p>
                             <p className="text-sm text-foreground tabular-nums">{value}</p>
                         </div>
                     ))}
-                    <div className="col-span-2 pt-1 space-y-1.5">
-                        <div className="flex items-center justify-between">
-                            <p className="text-sm text-muted-foreground">Trial usage</p>
-                            <p className="text-sm text-foreground tabular-nums">{Math.round(scorePct)}%</p>
-                        </div>
-                        <UsageBar pct={scorePct} nearAt={85} fullAt={100} />
-                    </div>
                 </div>
             </div>
         )

@@ -16,8 +16,9 @@ export interface ConversionCounts {
 const STORAGE_KEY = 'conesoft_conversion_counts'
 const DAILY_STORAGE_KEY = 'conesoft_daily_counts'
 
-// Per-category weights: 1 / budget. Score = sum(count * weight), threshold at 0.9.
-// Budgets: 100 images, 20 docs, 20 videos, 20 audio.
+// Per-category weights: 1 / budget. Score = sum(count * weight), threshold at 1.0.
+// TOKEN_TOTAL maps the score to user-visible credits: image = 1 cr, others = 5 cr each.
+export const TOKEN_TOTAL = 100
 export const WEIGHTS = {
     image: 1 / 100,
     document: 1 / 20,
@@ -113,31 +114,23 @@ function getLocal(): ConversionCounts {
     }
 }
 
-function setLocal(counts: ConversionCounts) {
+function setLocal(counts: ConversionCounts, { reconcile = false } = {}) {
     const prev = getLocal()
     localStorage.setItem(STORAGE_KEY, JSON.stringify(counts))
     useCountsStore.setState({ counts })
-    // If the overall score dropped back below the threshold, daily buckets are stale — clear them.
+    // If the overall score dropped back below exhaustion, daily buckets are stale — clear them.
     if (getTrialScore(prev) >= EXHAUSTION_THRESHOLD && getTrialScore(counts) < EXHAUSTION_THRESHOLD) {
         localStorage.removeItem(DAILY_STORAGE_KEY)
     }
-    reconcilePlanWithCounts(counts)
+    if (reconcile) reconcilePlanWithCounts(counts)
 }
 
-// Whenever counts change, make sure the plan still matches what the counts imply:
-// if the user is on 'limited' but any category is back under its trial cap, they're
-// actually on 'trial' again (per the app's rule: limited only when everything exhausted).
-// Runs in all code paths that touch counts, not just Realtime events — so admin edits,
-// sign-in merges, increments, and refunds all trigger the reconciliation equally.
-// Revert threshold is intentionally lower than EXHAUSTION_THRESHOLD so that a
-// single refund near the boundary (score 0.99 → 0.98) doesn't flip the plan back.
-// Only a meaningful drop — like an admin zeroing counts — crosses this line.
-const REVERT_THRESHOLD = 0.5
-
+// Only called from authoritative sources (Realtime events, sign-in merge) — never from
+// local refunds, so no threshold games needed: score < 1.0 means trial isn't exhausted.
 function reconcilePlanWithCounts(counts: ConversionCounts) {
     const store = useAuthStore.getState()
     if (store.plan !== 'limited') return
-    if (getTrialScore(counts) >= REVERT_THRESHOLD) return
+    if (getTrialScore(counts) >= EXHAUSTION_THRESHOLD) return
     store.setPlan('trial')
     const uid = store.user?.id
     if (uid) {
@@ -243,7 +236,7 @@ export function useConversionCount(user: User | null) {
                     video: Math.max(local.video, server.video),
                     audio: Math.max(local.audio, server.audio),
                 }
-                setLocal(merged)
+                setLocal(merged, { reconcile: true })
 
                 // Push merged back to server if local was higher or row didn't exist yet
                 const needsPush = !data
@@ -288,7 +281,7 @@ export function useConversionCount(user: User | null) {
                         document: payload.new.document_count ?? 0,
                         video: payload.new.video_count ?? 0,
                         audio: payload.new.audio_count ?? 0,
-                    })
+                    }, { reconcile: true })
                 }
             )
             .subscribe()
