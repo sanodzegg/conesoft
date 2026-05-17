@@ -2,7 +2,7 @@ import { createElement } from 'react'
 import { getEngineForFile } from '@/engines/engineRegistry'
 import { fileKey } from '@/utils/fileUtils'
 import type { ConvertStore } from '@/store/useConvertStore'
-import { isAtLimit, isTrialExhausted, incrementLocalCount, getTrialScore, getLocalCounts, getDailyCounts, LIMITED_DAILY_LIMITS, WEIGHTS } from '@/lib/useConversionCount'
+import { isTrialExhausted, incrementLocalCount, getTrialScore, getLocalCounts, getDailyCounts, LIMITED_DAILY_LIMITS, WEIGHTS } from '@/lib/useConversionCount'
 import { toEngineType } from '@/lib/ConversionCountContext'
 import { toast } from 'sonner'
 
@@ -92,6 +92,18 @@ async function convertFile(file: File, filePlan: string, deps: ConversionDeps): 
   }
 }
 
+const IMAGE_CONCURRENCY = 4
+
+async function runWithConcurrency<T>(tasks: (() => Promise<T>)[], limit: number): Promise<void> {
+  let i = 0
+  async function worker() {
+    while (i < tasks.length) {
+      await tasks[i++]().catch(() => {})
+    }
+  }
+  await Promise.all(Array.from({ length: Math.min(limit, tasks.length) }, worker))
+}
+
 export async function convertAll(files: File[], deps: ConversionDeps): Promise<void> {
   const pending = files.filter((f) => !deps.convertedFiles[fileKey(f)])
   if (pending.length === 0) return
@@ -105,45 +117,31 @@ export async function convertAll(files: File[], deps: ConversionDeps): Promise<v
     deps.plan = 'limited'
   }
 
-  // Assign each file its effective plan before dispatch. For trial, count how many
-  // slots remain in the trial budget per engine type, assign those as 'trial' and
-  // the rest as 'limited'. This way all parallel conversions know their bucket upfront
-  // and the trial total never inflates beyond the threshold.
-  const trialBudgetRemaining: Record<string, number> = {}
-  if (deps.plan === 'trial') {
-    const counts = getLocalCounts()
-    for (const engine of ['image', 'document', 'video', 'audio'] as const) {
-      const weight = WEIGHTS[engine]
-      const used = counts[engine] * weight
-      const remaining = 1.0 - getTrialScore(counts)
-      // slots remaining for this engine = how many more of this engine fit before score hits 1.0
-      trialBudgetRemaining[engine] = Math.floor(remaining / weight)
-    }
-  }
-
+  // Assign each file its effective plan before dispatch using a single shared score
+  // pool — each engine draws from the same remaining budget. Per-engine independent
+  // budgets were wrong: they each got floor(remaining/weight) slots, letting all
+  // engines over-allocate far beyond the actual remaining score.
   const filePlans: Map<File, string> = new Map()
-  const engineCounters: Record<string, number> = {}
   let needsPlanFlip = false
 
-  for (const f of pending) {
-    const engineId = getEngineForFile(f)?.id ?? ''
-    const limitType = toEngineType(engineId)
-
-    if (deps.plan !== 'trial' || !limitType) {
-      filePlans.set(f, deps.plan)
-      continue
+  if (deps.plan === 'trial') {
+    let remainingScore = 1.0 - getTrialScore(getLocalCounts())
+    for (const f of pending) {
+      const engineId = getEngineForFile(f)?.id ?? ''
+      const limitType = toEngineType(engineId)
+      if (!limitType) { filePlans.set(f, 'trial'); continue }
+      const cost = WEIGHTS[limitType]
+      // 1e-9 epsilon absorbs FP drift so an exactly-fitting file isn't wrongly rejected
+      if (remainingScore >= cost - 1e-9) {
+        filePlans.set(f, 'trial')
+        remainingScore -= cost
+      } else {
+        filePlans.set(f, 'limited')
+        needsPlanFlip = true
+      }
     }
-
-    const used = (engineCounters[limitType] ?? 0)
-    const budget = trialBudgetRemaining[limitType] ?? 0
-
-    if (used < budget) {
-      filePlans.set(f, 'trial')
-      engineCounters[limitType] = used + 1
-    } else {
-      filePlans.set(f, 'limited')
-      needsPlanFlip = true
-    }
+  } else {
+    for (const f of pending) filePlans.set(f, deps.plan)
   }
 
   if (needsPlanFlip) {
@@ -207,8 +205,9 @@ export async function convertAll(files: File[], deps: ConversionDeps): Promise<v
   const images = dispatchPending.filter((f) => getEngineForFile(f)?.id === 'image')
   const nonImages = dispatchPending.filter((f) => getEngineForFile(f)?.id !== 'image')
 
-  const imagePromise = Promise.allSettled(
-    images.map((f) => convertFile(f, filePlans.get(f) ?? deps.plan, wrappedDeps))
+  const imagePromise = runWithConcurrency(
+    images.map((f) => () => convertFile(f, filePlans.get(f) ?? deps.plan, wrappedDeps)),
+    IMAGE_CONCURRENCY
   )
 
   const nonImagePromise = (async () => {
