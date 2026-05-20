@@ -56,6 +56,7 @@ Deno.serve(async (req) => {
       .from('users')
       .update({
         plan,
+        subscription_end: isSubscription ? (data.billing_period?.ends_at ?? null) : null,
         paddle_customer_id: data.customer_id ?? null,
         paddle_subscription_id: isSubscription ? (data.subscription_id ?? null) : null,
         paddle_transaction_id: !isSubscription ? data.id : null,
@@ -75,9 +76,11 @@ Deno.serve(async (req) => {
     const subscriptionId = data.id
     if (!subscriptionId) return new Response('Missing subscription ID', { status: 400 })
 
+    const subscriptionEnd = data.current_billing_period?.ends_at ?? new Date().toISOString()
+
     const { error } = await supabase
       .from('users')
-      .update({ plan: 'limited', paddle_subscription_id: null })
+      .update({ plan: 'limited', paddle_subscription_id: null, subscription_end: subscriptionEnd })
       .eq('paddle_subscription_id', subscriptionId)
 
     if (error) {

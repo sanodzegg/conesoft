@@ -12,7 +12,7 @@ import { UsageCard } from '@/components/profile/UsageCard'
 type Mode = 'login' | 'signup'
 
 export default function Auth() {
-    const { user, plan, loading } = useAuth()
+    const { user, plan, subscriptionEnd, loading } = useAuth()
     const counts = useCountsStore(s => s.counts)
     const [mode, setMode] = useState<Mode>('login')
     const [email, setEmail] = useState('')
@@ -85,7 +85,7 @@ export default function Auth() {
                 <div className="grid grid-cols-2 gap-4">
                     <AccountCard user={user} />
                     <UsageCard plan={plan} counts={counts} />
-                    <PlanCard plan={plan} />
+                    <PlanCard plan={plan} subscriptionEnd={subscriptionEnd} />
                 </div>
             </section>
         )
@@ -197,7 +197,7 @@ export default function Auth() {
                 </div>
 
                 <UsageCard plan={plan} counts={counts} />
-                <PlanCard plan={plan} />
+                <PlanCard plan={plan} subscriptionEnd={subscriptionEnd} />
             </div>
         </section>
     )
