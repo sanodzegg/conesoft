@@ -18,6 +18,6 @@ export const documentEngine: ConversionEngine = {
     const sourceFormat = getExtension(file)
     const buffer = await file.arrayBuffer()
     const result = await window.electron.convertDocument(buffer, targetFormat, sourceFormat)
-    return new Blob([result.buffer as ArrayBuffer], { type: MIME[targetFormat] })
+    return new Blob([result], { type: MIME[targetFormat] })
   },
 }

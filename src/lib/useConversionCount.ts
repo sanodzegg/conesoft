@@ -71,13 +71,6 @@ function setDailyLocal(counts: DailyCounts) {
     localStorage.setItem(DAILY_STORAGE_KEY, JSON.stringify(counts))
 }
 
-export function incrementDailyCount(engine: EngineType) {
-    const counts = getDailyLocal()
-    if (counts[engine] >= DAILY_LIMITS[engine]) return
-    counts[engine] = (counts[engine] ?? 0) + 1
-    setDailyLocal(counts)
-}
-
 export function getDailyCounts(): DailyCounts {
     return getDailyLocal()
 }
@@ -130,6 +123,12 @@ function setLocal(counts: ConversionCounts, { reconcile = false } = {}) {
 function reconcilePlanWithCounts(counts: ConversionCounts) {
     const store = useAuthStore.getState()
     if (store.plan !== 'limited') return
+    // 'limited' is overloaded: it means *either* an exhausted trial (no subscription
+    // history) *or* a churned/expired subscription. Only the former may revert to a
+    // fresh 'trial' budget. A user with any subscription_end has paid before — never
+    // resurrect them to 'trial' (that would hand back a trial budget AND overwrite
+    // the real plan in the DB below). They stay 'limited' (daily budget).
+    if (store.subscriptionEnd) return
     if (getTrialScore(counts) >= EXHAUSTION_THRESHOLD) return
     store.setPlan('trial')
     const uid = store.user?.id

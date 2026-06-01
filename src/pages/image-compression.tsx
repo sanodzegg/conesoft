@@ -67,7 +67,7 @@ export default function ImageCompression() {
     if (!fileRef.current) return
     const buffer = await fileRef.current.arrayBuffer()
     const result = await window.electron.convert(buffer, format, quality)
-    const blob = new Blob([result.buffer as ArrayBuffer], { type: `image/${format}` })
+    const blob = new Blob([result], { type: `image/${format}` })
     const url = URL.createObjectURL(blob)
     const base = (imageName ?? 'image').replace(/\.[^.]+$/, '')
     const a = document.createElement('a')

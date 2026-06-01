@@ -1,16 +1,18 @@
 {
   "name": "conesoft",
-  "version": "1.9.0",
+  "version": "1.9.1",
   "description": "Local-first desktop app for file conversion and media tooling. Convert images, video, audio, and documents entirely on-device. No uploads, no cloud.",
   "main": "main.js",
   "scripts": {
     "dev": "vite",
     "build": "vite build",
+    "typecheck": "tsc --noEmit",
     "start": "electron .",
     "dev:all": "concurrently -n vite,electron -c cyan,yellow \"vite\" \"electron .\"",
-    "package": "vite build && electron-builder",
-    "package:mac": "vite build && electron-rebuild -f -w sharp && electron-builder --mac",
-    "package:win": "vite build && electron-builder --win",
+    "prep:browsers": "node scripts/install-browser.mjs",
+    "package": "tsc --noEmit && node scripts/install-browser.mjs && vite build && electron-builder",
+    "package:mac": "tsc --noEmit && node scripts/install-browser.mjs && vite build && electron-rebuild -f -w sharp && electron-builder --mac",
+    "package:win": "tsc --noEmit && node scripts/install-browser.mjs && vite build && electron-builder --win",
     "postinstall": "electron-builder install-app-deps && node node_modules/ffmpeg-static/install.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
@@ -56,7 +58,12 @@
     "directories": {
       "output": "release"
     },
-    "extraResources": [],
+    "extraResources": [
+      {
+        "from": "ms-playwright",
+        "to": "ms-playwright"
+      }
+    ],
     "asar": true,
     "asarUnpack": [
       "**/node_modules/sharp/**/*",

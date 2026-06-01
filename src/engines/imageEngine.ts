@@ -37,6 +37,8 @@ export const imageEngine: ConversionEngine = {
       fit: options.fit,
       keepMetadata: options.keepMetadata,
     })
-    return new Blob([result.buffer as ArrayBuffer], { type: `image/${targetFormat}` })
+    // result is a Uint8Array over IPC; pass it directly — `.buffer` could include
+    // bytes outside the view if it ever arrives with a non-zero byteOffset.
+    return new Blob([result], { type: `image/${targetFormat}` })
   },
 }

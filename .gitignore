@@ -7,6 +7,9 @@ dist-electron/
 out/
 release/
 
+# Bundled Playwright Chromium (installed at package time)
+ms-playwright/
+
 # Environment
 .env
 .env.local

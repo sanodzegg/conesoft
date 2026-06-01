@@ -46,6 +46,6 @@ export const audioEngine: ConversionEngine = {
     const sourceExt = getExtension(file)
     const buffer = await file.arrayBuffer()
     const result = await window.electron.convertAudio(buffer, sourceExt, targetFormat)
-    return new Blob([result.buffer as ArrayBuffer], { type: MIME[targetFormat] ?? 'audio/mpeg' })
+    return new Blob([result], { type: MIME[targetFormat] ?? 'audio/mpeg' })
   },
 }

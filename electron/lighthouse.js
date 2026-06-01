@@ -55,7 +55,24 @@ function registerLighthouseHandlers(mainWindow) {
       }
 
       const npm = process.platform === 'win32' ? 'npm.cmd' : 'npm'
-      const child = spawn(npm, ['install', 'lighthouse@latest', '--save-exact'], { cwd: LIGHTHOUSE_DIR })
+      // shell:true on Windows — Node refuses to spawn .cmd files directly (EINVAL) since the
+      // CVE-2024-27980 fix. On posix npm is a normal executable so no shell is needed.
+      const child = spawn(npm, ['install', 'lighthouse@latest', '--save-exact'], {
+        cwd: LIGHTHOUSE_DIR,
+        shell: process.platform === 'win32',
+      })
+
+      // If npm isn't on PATH, spawn emits 'error' and 'close' never fires — without this the
+      // install would hang forever. Resolve cleanly with an actionable message instead.
+      child.on('error', (err) => {
+        const msg = err.code === 'ENOENT'
+          ? 'npm was not found on this system. Node.js (which includes npm) is required to install the Lighthouse engine.'
+          : err.message
+        if (!mainWindow.isDestroyed()) {
+          mainWindow.webContents.send('lighthouse-install-progress', { status: 'error', error: msg })
+        }
+        resolve({ success: false, error: msg })
+      })
 
       // npm prints one "added N packages" line at the end — we can't get real per-package
       // progress, so we simulate smooth fill by counting stderr dots and lines over time.

@@ -1,5 +1,14 @@
-const { ipcMain, dialog } = require('electron')
+const { ipcMain, dialog, app } = require('electron')
 const fs = require('fs')
+const path = require('path')
+
+// In the packaged app Chromium is bundled under resources/ms-playwright
+// (electron-builder `extraResources` + the `playwright-core install` step in the
+// `package` scripts). Point Playwright at it BEFORE the module computes
+// executablePath(). In dev this stays unset so the developer's own browser cache is used.
+if (app.isPackaged) {
+  process.env.PLAYWRIGHT_BROWSERS_PATH = path.join(process.resourcesPath, 'ms-playwright')
+}
 const { chromium } = require('playwright-core')
 
 let browserInstance = null
@@ -13,8 +22,12 @@ async function ensureBrowser(mainWindow) {
   browserSetupPromise = (async () => {
     try {
       mainWindow.webContents.send('screenshot-browser-status', { status: 'downloading' })
+      const execPath = chromium.executablePath()
+      if (!execPath || !fs.existsSync(execPath)) {
+        throw new Error('Browser engine is missing from this build. Reinstall the app to restore Website PDF and Screenshot.')
+      }
       browserInstance = await chromium.launch({
-        executablePath: chromium.executablePath(),
+        executablePath: execPath,
         headless: true,
       })
       browserReady = true

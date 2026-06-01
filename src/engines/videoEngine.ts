@@ -22,6 +22,6 @@ export const videoEngine: ConversionEngine = {
       height: options.height,
       fit: options.fit,
     })
-    return new Blob([result.buffer as ArrayBuffer], { type: MIME[targetFormat] })
+    return new Blob([result], { type: MIME[targetFormat] })
   },
 }

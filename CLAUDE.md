@@ -1,14 +1,21 @@
 # Conesoft — Project Reference
 
-Internal planning document. Used as context for AI-assisted development sessions.
+Reference for AI-assisted development sessions. Reflects the **actual code** as of the
+last audit (see `TODO.md` for open work). When in doubt, trust the code over this file
+and update this file when you learn something non-obvious.
+
+Current version: **1.9.0** (`package.json`)
 
 ---
 
 ## What is Conesoft
 
-Conesoft is a **local-first Electron desktop app** for file conversion and media tooling. All processing runs on-device — no uploads, no cloud, no server required. Currently macOS + Windows.
+A **local-first Electron desktop app** for file conversion and media tooling. All
+processing runs on-device — no uploads, no server. macOS + Windows.
 
-Current version: **1.4.0**
+The conversion engines run in the **Electron main process** (Sharp, FFmpeg, pdf-lib,
+Playwright). The renderer (React) calls them over IPC. Some browser-only work (SVGO,
+background removal via ONNX, JSZip) runs in the renderer.
 
 ---
 
@@ -18,14 +25,17 @@ Current version: **1.4.0**
 |---|---|
 | Framework | Electron 41 |
 | Frontend | React 19 + TypeScript + Vite 7 |
-| Styling | Tailwind CSS v4 + shadcn/ui (Base UI) |
-| State | Zustand 5 with slices + `persist` middleware |
-| Image processing | Sharp |
-| Video/audio | FFmpeg (ffmpeg-static + fluent-ffmpeg) |
-| PDF | pdf-lib, pdfkit, pdf-parse, mammoth |
-| Browser automation | Playwright Core (for screenshot + website PDF) |
+| Styling | Tailwind CSS v4 + shadcn/ui (Base UI primitives, `@base-ui/react`) |
+| State | Zustand 5 — slices + `persist` middleware; plus standalone stores |
+| Image processing | Sharp (libvips) + `heic-convert` for HEIC/HEIF decode |
+| Video/audio | FFmpeg (`ffmpeg-static` + `fluent-ffmpeg`) |
+| PDF | `pdf-lib`, `pdfkit`, `pdf-parse`, `mammoth`, `docx`, `pdfjs-dist` (render) |
+| Browser automation | `playwright-core` (screenshot, website→PDF, Lighthouse engine) |
+| Background removal | `@imgly/background-removal` (ONNX runtime, in renderer) |
+| SVG | `svgo` (import from `svgo/browser`), CodeMirror 6 |
 | Auth + DB | Supabase (`@supabase/supabase-js`) |
-| Routing | React Router DOM v7 |
+| Payments | Paddle (Billing) via Supabase Edge Functions |
+| Routing | React Router DOM v7 (`HashRouter`) |
 | Package manager | pnpm |
 | Build/distribution | electron-builder |
 
@@ -34,234 +44,234 @@ Current version: **1.4.0**
 ## App Structure
 
 ```
-src/
-  pages/           — one file per route/feature
-  components/      — UI components, grouped by feature
-    files/         — homepage file list, conversion cards
-    bulk-converter/
-    settings/
-    favicons/
-    image-editor/
-    ui/            — shared primitives (button, input, dialog, etc.)
-  engines/         — conversion engines (image, video, audio, document)
-  services/        — conversionService.ts (orchestrates all conversions)
-  lib/             — supabase.ts, useAuth.ts, useSettingsSync.ts, useConversionCount.ts, ConversionCountContext.tsx
-  store/
-    useConvertStore.ts
-    slices/        — fileSlice, conversionSlice, settingsSlice
-  types/           — shared TypeScript interfaces
-  utils/           — fileUtils, estimateSize, etc.
-
+main.js                — Electron main process entry (root, NOT electron/main.js)
 electron/
-  main.js          — Electron main process entry
-  preload.js       — contextBridge IPC bindings
-  convert.js       — Sharp image conversion handlers
-  bulk-convert.js  — Bulk folder conversion + watch mode
-  video-tools.js   — FFmpeg video handlers
-  pdf-tools.js     — PDF merge/manipulation
-  website-pdf.js   — Playwright website-to-PDF
-  screenshot.js    — Playwright screenshot capture
+  preload.js           — contextBridge: window.electron.* IPC bindings
+  convert.js           — image (Sharp), document, favicon, VIDEO + AUDIO (FFmpeg) handlers
+  bulk-convert.js      — bulk folder conversion + fs.watch watch mode
+  pdf-tools.js         — PDF merge
+  pdf-editor.js        — PDF page ops, watermark, form fill, burn annotations
+  website-pdf.js       — Playwright website→PDF (shares browser w/ screenshot)
+  screenshot.js        — Playwright screenshot + owns the shared browser instance
+  lighthouse.js        — Lighthouse runner (installs lighthouse on demand via npm)
+  batch-rename.js      — folder scan + rename rules
+  file-save.js         — pick folder / save buffer to disk (auto-download)
+
+src/
+  main.tsx             — App root: providers, ConversionCountContext wiring
+  router.tsx           — React.lazy routes under one top-level <Suspense>
+  pages/               — one file per route
+  components/          — grouped by feature (files, bulk-converter, image-editor,
+                         pdf-editor, svg-editor, favicons, settings, profile, ui, …)
+  engines/             — ConversionEngine interface + image/video/audio/document + registry
+  services/            — conversionService.ts (orchestrates homepage conversions)
+  store/
+    useConvertStore.ts — persisted Zustand store (file + conversion + settings slices)
+    useAuthStore.ts    — auth/plan/subscriptionEnd (standalone, localStorage-backed)
+    slices/            — fileSlice, conversionSlice, settingsSlice
+  lib/                 — supabase, useAuth (re-export of useAuthStore), useSettingsSync,
+                         useConversionCount, ConversionCountContext, pdf-worker
+  types/               — index.ts (shared interfaces), electron.d.ts (window.electron API)
+  utils/               — fileUtils (fileKey, getExtension, formatBytes), estimateSize
+
+supabase/
+  functions/paddle-webhook/      — Paddle webhook (transaction.completed, subscription.canceled)
+  functions/cancel-subscription/ — authenticated cancel via Paddle API
+  migrations/                    — schema, plan-default fix, paddle fields
+
+scripts/install-browser.mjs      — installs Chromium into ./ms-playwright for bundling
 ```
 
----
-
-## Features
-
-### Homepage — File Converter
-- Drag & drop or file picker for images, video, audio, documents
-- Per-file format selector (combobox)
-- Per-file settings dialog: resize (w/h/fit), quality override, keep metadata (image only)
-- Estimated output size shown inline before conversion (image only, heuristic ratios)
-- Per-file convert button + "Convert All"
-- Active conversion shown with spinner + primary highlight on the converting row
-- Converted files shown in results section with download + bulk ZIP download
-- Bulk ZIP download shows spinner + disabled state while zipping (`isZipping` state)
-- Conversion stats: count, % saved, output size, progress bar
-- Suspicious savings tooltip (explains same-format re-encode or unusually high savings)
-- Duplicate file detection in dropbox — shows "N duplicate file(s) skipped" for 3s, computed client-side by comparing `name-size-lastModified` keys against existing store files
-- Drag highlight only clears on true zone exit — `dragLeave` checks `relatedTarget` to ignore child element transitions
-- Settings icon on file row is yellow only when file has meaningful customization: width/height set, quality differs from default, or keepMetadata is explicitly false. Opening and saving without changes does not mark as customized.
-- `isConverting` in file list checks `convertingFiles.size > 0` (not count comparison) — reliable during single-file conversions which reset `convertingTotal` to 1
-- `startConversion` clears `convertedFiles: {}` — prevents previous batch results bleeding into a new batch
-- `convertFile` in `conversionService.ts` guards with `convertingFiles.has(fileKey(file))` at the top — prevents double-conversion race when Convert All is triggered mid-conversion
-- `IMAGE_EXTS` in `file.tsx` derives from `IMAGE_INPUT_EXTENSIONS` exported by `imageEngine.ts` — stays in sync automatically
-- `TooltipContent` must be a sibling of `TooltipTrigger`, not nested inside it — affects all tooltip buttons in the file row
-- File settings dialog syncs local state from store on open (`syncFromStore()` called in `onOpenChange`) — prevents stale state from cancelled sessions
-
-### Bulk Converter
-- Pick a folder → recursively scans for images
-- Settings: output format, quality, output location (alongside / subfolder / custom folder), delete originals toggle
-- Progress bar during conversion
-- Watch folder mode (live converts new files as they're added)
-- Results list with per-file status, retry on failure
-- Scroll anchors to top in watch mode as new results prepend
-- Same-format warning (files that would be skipped)
-
-### Image Editor (extension)
-- Canvas-based editor with toolbar tabs: Adjust, Effects, Transform, Canvas, Overlay, Background Remove
-- Undo/redo history
-- Export dialog with format + quality selection
-- Files can be sent here from the homepage via "Edit in Editor" button
-
-### Favicon Generator
-- Upload any image → generates full icon set
-- Output: favicon.ico (all sizes embedded) + PNG at 16, 32, 48, 64, 128, 256, 512, 1024px
-- Also generates macOS `icns/` folder with iconutil-compatible filenames + README
-- Per-size preview images shown before download
-- Download individual sizes or ZIP of everything
-
-### Website PDF
-- Enter URL → renders via Playwright → save as PDF
-- Controls: paper format, orientation, margins, print background, viewport width, wait-until strategy, extra wait time
-- Wait Until options: DOM ready (fastest), Load event (balanced), Network idle (thorough) — each with description
-- Viewport presets: Mobile (390px), Tablet (768px), Desktop (1440px), Wide (1920px)
-- Countdown shown when waiting for timed load
-
-### Website Screenshot
-- Enter URL → full-page screenshot via Playwright
-- Format: PNG / JPG / WebP
-- Same viewport presets as PDF
-- User agent presets: Default, Chrome, Safari, Mobile (iPhone), Bot
-- Live preview in-app after capture
-- Browser engine download/status indicator
-
-### SVG Editor
-- Upload via drag & drop or file picker, or paste SVG code (auto-loads on valid paste)
-- Left panel: CodeMirror 6 editor with XML syntax highlighting, line numbers, undo/redo history
-- Right panel: tabbed — Preview, Code, Data URI
-- Editor toolbar: Prettify button, Optimize button (shows `−N%` savings, one-way action via SVGO, undoable with Ctrl+Z), Download icon, Copy icon, file size label
-- Preview tab: metadata bar (viewBox, width×height) + background picker (transparent/white/black/gray)
-- Preview uses `preparePreview` — strips `<?xml?>` + comments, removes fixed width/height from `<svg>`, adds `preserveAspectRatio="xMidYMid meet"`
-- `.svg-preview svg` CSS in `index.css` uses `max-width/max-height: calc(100% - 48px)` + `overflow: visible` to handle content outside viewBox
-- Code tab: format selector (SVG, React, Vue, Angular, HTML `<img>`) with copy button
-- Data URI tab: Base64, encodeURIComponent, Minified (encodeURIComponent + SVGO) with byte sizes and copy buttons
-- `isValidSvg` accepts optional `<?xml?>`, `<!DOCTYPE>`, leading comments, then `<svg`
-- Files: `src/pages/svg-editor.tsx`, `src/components/svg-editor/SvgCodeEditor.tsx`, `src/components/svg-editor/svg-utils.ts`, `src/components/svg-editor/svg-dropzone.tsx`
-
-### PDF Merge
-- Pick multiple PDFs → merge into one → save
-- Drag-to-reorder file list, per-file remove, file size shown inline
-- Filename truncated with tooltip showing full name (TooltipTrigger needs `flex-1 min-w-0` to participate in flex layout)
-
-### Settings
-- Image quality default (slider with live comparison preview)
-- Default output format per engine type (image / video / audio / document)
-- Settings sync to Supabase when signed in — applied on sign in across devices
-- Settings conflict dialog shown when local and account settings differ on sign in
-
-### Pricing
-- Three-tier pricing page at `/pricing`
-- Trial (free, limited), Pro (monthly/annual toggle), Lifetime (one-time)
-- Prices are placeholder — not yet finalized
-
-### Account
-- Email/password auth via Supabase at `/account`
-- Shows signed-in email + sign out when authenticated
-- Account link in extensions sheet (bottom, fixed) shows email when signed in
-
----
-
-## State Management
-
-Three Zustand slices combined in `useConvertStore`:
-
-**fileSlice** — `files[]`, `receiveFiles`, `removeFile`
-
-**conversionSlice** — `fileSettings`, `convertedFiles`, `failedFiles`, `convertedCount`, `convertingTotal`, `totalInputSize`, `totalOutputSize`, `currentFileName`
-
-**settingsSlice** (persisted to disk) — `quality`, `imageQuality`, `defaultImageFormat`, `defaultDocumentFormat`, `defaultVideoFormat`, `defaultOutputFolder`, `pendingEditorFile`
-
-Persisted keys: `quality`, `imageQuality`, `defaultImageFormat`, `defaultDocumentFormat`, `defaultVideoFormat`, `defaultOutputFolder`. File objects are excluded from persistence (not serializable).
+> **Stale-doc traps:** there is no `electron/main.js` (entry is root `main.js`) and no
+> `video-tools.js` (video/audio handlers live in `electron/convert.js`).
 
 ---
 
 ## Conversion Engines
 
-| Engine | Input formats | Quality used? |
-|---|---|---|
-| image | jpg, jpeg, png, webp, avif, heic, heif, gif, tiff, tif, svg, bmp, jfif | Yes — `imageQuality` default |
-| video | mp4, mov, avi, mkv, webm | No — format re-encode only |
-| audio | mp3, aac, flac, wav, ogg, aiff, m4a + more | No |
-| document | docx, pdf, txt + more | No |
+Each engine implements `ConversionEngine` (`src/engines/ConversionEngine.ts`):
+`convert(file, targetFormat, options) => Promise<Blob>`. The registry
+(`engineRegistry.ts`) maps file extension → engine (first engine to claim an extension
+wins) and exposes output formats, including a `LIMITED_OUTPUT_FORMATS` subset used to
+gate certain formats.
 
-Video conversion is container/codec re-encode only (e.g. mp4 → webm). Quality setting has no effect and is not passed to FFmpeg.
+| Engine | Inputs | Outputs | Quality used? | Notes |
+|---|---|---|---|---|
+| image | jpg, jpeg, jfif, png, webp, avif, heic, heif, gif, tiff, tif, svg | webp, png, jpg, avif, gif, tiff | Yes (`imageQuality`) | HEIC/HEIF decoded via `heic-convert` first; SVG rasterized at 300 dpi; **no bmp** (not in this libvips build) |
+| video | mp4, mov, avi, mkv, webm | mp4, webm, gif | No | re-encode; resize via complexFilter; GIF forces fps 15 / 640px |
+| audio | aac, ac3, aif/aiff/aifc, amr, au, caf, dss, flac, m4a/m4b, mp3, oga, voc, wav, weba, wma | mp3, aac, flac, wav, ogg, aiff, m4a, ac3, au, weba | No | WMA/DSS decode-only; ffmpeg fmt aliases (m4a→ipod, weba→webm) |
+| document | pdf, docx, txt | txt, docx, pdf | No | extract text (pdf-parse/mammoth) → pdfkit/docx; **formatting is lost** (text-only) |
 
-IPC pattern: renderer calls `window.electron.*` → preload bridges to `ipcRenderer.invoke` → main process handler returns result.
+**IPC contract:** engine reads `file.arrayBuffer()` → `window.electron.convert*` →
+handler returns a Node `Buffer` → arrives in the renderer as a `Uint8Array<ArrayBuffer>`
+→ wrap with **`new Blob([result])`** (not `result.buffer` — that can include bytes
+outside the view). Types live in `src/types/electron.d.ts`.
+
+**Image conversion gotchas (`electron/convert.js`):**
+- `normalizeFormat`: jfif→jpeg, tif→tiff, heic/heif→heif.
+- `sharpFormatOptions`: PNG ignores quality (maps to compressionLevel); WebP at q100 → lossless; GIF ignores quality.
+- HEIC sniffing reads the `ftyp` box; an **AVIF guard** prevents AVIF (which can share the `mif1` brand) from being routed to the HEVC-only `heic-convert`.
+- Video/audio write temp files to `os.tmpdir()` with `randomUUID` and clean them in `finally`.
 
 ---
 
-## Auth + Payments (implemented)
+## Conversion Counting & Plans  ⚠️ read carefully
 
-### Supabase
-- Project: `otdahhtxvwchkxwehvsq`
-- Auth: email/password (Google + GitHub OAuth planned, not yet implemented)
-- `src/lib/supabase.ts` — client initialized with `VITE_SUPABASE_URL` + `VITE_SUPABASE_PUBLISHABLE_KEY` from `.env`
-- `src/lib/useAuth.ts` — session listener, exposes `user`, `plan`, `loading`
-
-### Database tables
-- `users` — `id`, `email`, `plan` ('trial'|'monthly'|'annual'|'lifetime'), `paid_at`, `license_key`, `subscription_end`, `created_at`
-- `settings` — `user_id`, `image_quality`, `default_image_format`, `default_document_format`, `default_video_format`, `default_output_folder`, `updated_at`
-- `conversion_counts` — `user_id`, `image_count`, `document_count`, `video_count`, `updated_at`
-
-All tables have RLS enabled. Trigger `on_auth_user_created` auto-inserts into `users` + `conversion_counts` on signup.
-
-### Settings sync (`src/lib/useSettingsSync.ts`)
-- On sign in: fetches remote settings, compares to local
-- If identical → applies remote silently
-- If different → shows `SettingsConflictDialog` — user picks local or account settings
-- On any setting change while signed in → Zustand `subscribe` fires upsert to Supabase
-- Signed out → local Zustand persist only
-
-### Conversion counting (`src/lib/useConversionCount.ts`)
-- Counts stored in `localStorage` key `cone_conversion_counts` as `{ image, document, video }`
-- On sign in + online: fetches server counts, merges by taking the higher of each (local wins for trial users)
-- After each successful conversion: `incrementLocalCount(engine)` + `syncCountToServer(engine)`
-- Wired via `ConversionCountContext` — `onConversionSuccess(engineId)` passed through context
-- Connected in: homepage file converter, bulk converter, favicon generator
-
-### Trial limits
-- Image: 100 | Document: 50 | Video: 10
-- `isAtLimit(engine, plan)` — returns true only for `plan === 'trial'` at/over limit
-- Limit enforcement UI (upgrade prompt + navigate to `/pricing`) — not yet implemented
+This is the most intricate subsystem. Source of truth:
+`src/lib/useConversionCount.ts`, `src/services/conversionService.ts`,
+`src/store/useAuthStore.ts`, `src/main.tsx`.
 
 ### Plans
-| Plan | Access |
-|---|---|
-| trial | Limited conversions (500 img / 500 doc / 100 vid), no reset |
-| monthly | Unlimited, active while subscribed |
-| annual | Unlimited, active while subscribed |
-| lifetime | Unlimited forever |
+`trial | limited | monthly | annual | lifetime` (enforced by a DB CHECK constraint).
 
-### Payments
-- Payment provider not yet integrated (Stripe not available in Georgia — researching Paddle/alternatives)
-- Pricing page built at `/pricing` with placeholder prices
+- **trial** — one-time weighted budget (see below). When exhausted → flips to `limited`.
+- **limited** — daily per-category budget. Means **either** an exhausted trial **or** a
+  churned/expired subscription. The two are disambiguated by `subscriptionEnd`:
+  non-null ⇒ former subscriber (never resurrect to trial).
+- **monthly / annual** — unlimited while active. `effectivePlan()` downgrades them to
+  `limited` once `subscriptionEnd` is in the past.
+- **lifetime** — unlimited forever.
+
+`useAuthStore` holds `user`, `plan`, `subscriptionEnd`, `loading`. Plan is mirrored to
+`localStorage` and kept live via a Supabase Realtime subscription on `users` (so manual
+DB edits / webhook updates propagate). `useAuth` is just a re-export of `useAuthStore`.
+
+### Trial budget (weighted score)
+- Weights: image `1/100`, document/video/audio `1/20`. Score = Σ min(count·weight, 1), capped per category, threshold **1.0**.
+- Mapped to **100 user-visible credits** (`TOKEN_TOTAL`): image = 1 cr, others = 5 cr.
+  So 100 images, or 20 of any other type, or any mix summing to 100 credits.
+- Stored in `localStorage` (`conesoft_conversion_counts`), reactive via `useCountsStore`.
+
+### Limited (daily) budget
+- Daily limits: image 20, document 20, video 10, audio 10. Stored in
+  `conesoft_daily_counts` with a `resetAt` epoch; auto-resets after 24h.
+
+### Reservation + refund (parallel-safe)
+- `incrementLocalCount(engine, plan)` **reserves a slot up front** and returns
+  `[refund, reserved]`. `reserved=false` ⇒ limit full, caller must not proceed.
+  trial/paid → increments lifetime total (always reserves); limited → checks daily window.
+- `convertFile` (conversionService) reserves before converting and calls `refund()` on
+  failure, so failed conversions don't burn a slot.
+- `convertAll` assigns each file an effective plan from a single shared remaining-score
+  pool, pre-flights daily blocks, then dispatches images at concurrency 4 and
+  non-images sequentially.
+
+### Server sync
+- `useConversionCount(user)`: on sign-in, merges server vs local (max per category) and
+  pushes back. Realtime `UPDATE` on `conversion_counts` applies admin edits verbatim;
+  our own echoes are skipped via `ownPushTimestamps`. `syncCountToServer()` is debounced 800 ms.
+- `reconcilePlanWithCounts` reverts `limited → trial` only when counts drop below
+  threshold **and** there's no `subscriptionEnd` (protects churned subscribers).
+
+### ⚠️ Where counting is wired (and where it ISN'T)
+The **only** place counts actually increment is `conversionService.convertFile`
+(`incrementLocalCount`). The shared `onConversionSuccess` in `main.tsx` only triggers
+server sync + an exhaustion check — **it does not increment.**
+
+→ Therefore **only the homepage converter** counts toward limits. **Bulk converter,
+watch mode, favicon generator, and image-compression bypass counting and limits
+entirely.** This is a known open decision — see `TODO.md` #1. Limit-enforcement UI
+(`isAtLimit`) currently exists only in the homepage dropbox.
 
 ---
 
-## Lazy Loading Architecture
+## Features (verified)
 
-All route-level pages are loaded via `React.lazy` in `src/router.tsx`, wrapped in a single top-level `<Suspense>`. This covers all lazy children — no need for nested `<Suspense>` boundaries in individual pages.
-
-Heavy components also lazy-loaded:
-- `SvgCodeEditor` (CodeMirror ~120KB) — lazy in `svg-editor.tsx`
-- `CropEditor` — lazy in `image-editor.tsx`
-- `FaviconResults` — lazy in `favicons.tsx` (type imported separately with `import type`)
-
-Heavy libraries dynamically imported at call-site:
-- `JSZip` — dynamic import inside `downloadAll` in `converted.tsx` and `favicon-results.tsx`
-- `svgo` — dynamic import inside `optimizeSvg` in `svg-utils.ts` — must import from `svgo/browser` (not `svgo`) to avoid pulling in Node built-ins (`os`, `fs`, `path`) via `svgo-node.js`
-
-Because `optimizeSvg` is async, `toMinifiedUri` and `toCodeSnippet` are also async. In `svg-editor.tsx`, any value derived from these uses `useEffect` + `useState` instead of `useMemo`.
-
-Named export lazy pattern: `lazy(() => import('...').then(m => ({ default: m.NamedExport })))`
+- **Homepage file converter** — drag/drop, per-file format + settings (resize, quality,
+  keep-metadata for images), estimated output size (images), Convert All, results with
+  download / bulk ZIP, suspicious-savings tooltip, duplicate detection, optional
+  **auto-download to folder**. Virtualized lists ≥20 items (`@tanstack/react-virtual`).
+- **Bulk converter** — pick folder → recursive image scan → convert (alongside /
+  subfolder / custom), delete-originals toggle, progress, **watch mode** (`fs.watch`,
+  recursive — macOS/Windows only), per-file retry.
+- **Image editor** — canvas editor: Adjust/Effects/Transform/Canvas/Overlay/Background-
+  Remove, undo/redo, export dialog. Files can be sent from homepage.
+- **Image compression** — live before/after comparison slider, quality, JPEG/WebP/AVIF.
+- **Favicon generator** — `.ico` (multi-size) + PNGs (16…1024) + macOS icns set.
+- **SVG editor** — CodeMirror, prettify/optimize (SVGO), preview, code export
+  (React/Vue/Angular/HTML), data-URI variants.
+- **PDF merge** — drag-reorder, merge, save.
+- **PDF editor** — page reorder/rotate/delete, watermark (text/image), form fill, burn
+  annotations (highlight/draw/arrow/text). Renders via `pdfjs-dist`.
+- **Website PDF** / **Website Screenshot** — Playwright; share one browser instance;
+  block trackers, scroll to trigger lazy media, replace videos, strip fixed/chat widgets.
+- **Lighthouse** — performance/a11y/best-practices/SEO audit. ⚠️ installs `lighthouse`
+  on demand via `npm` into userData (see `TODO.md`).
+- **Batch rename** — find/replace, prefix/suffix, case, sequential numbering, dedupe preview.
+- **Settings** — image-quality default, per-engine default formats, default output
+  folder; synced to Supabase when signed in (conflict dialog on divergence).
+- **Pricing / Account** — Paddle checkout, plan + renewal display, cancel flow.
 
 ---
 
-## Dev Notes
+## Auth + Payments
 
-- No responsive breakpoints — desktop-only app, no `sm:`/`md:`/`lg:` classes
-- Icon colors use full opacity only — no `/40` or similar opacity variants on icon colors
-- Commit messages: single line, no body, no bullet points, no co-author trailer
-- shadcn components: never overwrite existing files on install
-- `TooltipTrigger` renders as an inline element by default — add `flex-1 min-w-0` directly to it (not a child span) when truncation inside a flex row is needed
-- Vite build uses `manualChunks` to split `@supabase` → `supabase`, `@base-ui`+`@floating-ui` → `ui-vendor`, `react`+`react-dom`+`react-router` → `react-vendor`. App entry chunk is ~68 KB.
+### Supabase (project `otdahhtxvwchkxwehvsq`)
+- Client from `VITE_SUPABASE_URL` + `VITE_SUPABASE_PUBLISHABLE_KEY` (`.env`, gitignored;
+  anon key is safe to ship — Vite inlines it into the renderer bundle).
+- Email/password auth; OAuth deep-link plumbing exists (`conesoft://` protocol,
+  `open-url` / `second-instance`).
+
+### Tables (all RLS-enabled)
+- `users` — id, email, plan, paid_at, license_key, subscription_end, created_at,
+  `paddle_customer_id`, `paddle_subscription_id`, `paddle_transaction_id`.
+- `settings` — user_id, image_quality, default_*_format, default_output_folder, updated_at.
+- `conversion_counts` — user_id, image_count, document_count, video_count,
+  **audio_count**, updated_at.
+- Trigger `handle_new_user` inserts `users` (plan `trial`) + zeroed `conversion_counts` on signup.
+
+### Paddle
+- `paddle-webhook`: HMAC-SHA256 signature verify (constant-time + 5-min freshness
+  window), maps price IDs → plan (`PRICE_TO_PLAN`), handles `transaction.completed`
+  (sets plan, subscription_end, paddle ids) and `subscription.canceled` (→ limited).
+  **No idempotency/event-dedup yet** (see TODO).
+- `cancel-subscription`: authenticated; cancels via Paddle API `effective_from:
+  next_billing_period` (user keeps access until period end; webhook fires at end).
+- Edge-function env: `PADDLE_WEBHOOK_SECRET`, `PADDLE_API_KEY`, `PADDLE_SANDBOX`,
+  `SUPABASE_*`.
+
+---
+
+## Packaging (electron-builder)
+
+- `asar: true`; `asarUnpack` for sharp, `@img`, `detect-libc`, ffmpeg-static,
+  heic-convert, libheif-js (native/binary deps must run from disk).
+- **Chromium is bundled** via `extraResources: ms-playwright` + `scripts/install-browser.mjs`
+  (run by `package*`). At runtime, packaged mode sets
+  `PLAYWRIGHT_BROWSERS_PATH = resources/ms-playwright` **before** requiring
+  `playwright-core` (`electron/screenshot.js`). Dev uses the developer's own browser cache.
+  Adds ~150 MB per installer. **Verify on a clean machine after any packaging change.**
+- `package*` scripts gate on `tsc --noEmit` (the plain `vite build` does NOT typecheck —
+  esbuild strips types).
+- Mac targets dmg+zip; Win target nsis. `postinstall` runs `electron-builder
+  install-app-deps` + ffmpeg-static install.
+
+### Lazy loading
+- All routes lazy via `React.lazy` under one `<Suspense>` (`router.tsx`).
+- Heavy pieces lazy/dynamic: `SvgCodeEditor`, `CropEditor`, `FaviconResults`,
+  `ComparisonSlider`; `jszip` and `svgo` (`svgo/browser`!) dynamically imported at call site.
+- Vite `manualChunks` splits supabase / ui-vendor / react-vendor.
+
+---
+
+## Dev conventions (keep these)
+
+- **Commits:** single line, no body, no bullet points, no co-author trailer. Never stage
+  or commit unless the user explicitly says "commit".
+- **No responsive breakpoints** — desktop-only; no `sm:`/`md:`/`lg:` (only `2xl:` scale-ups appear).
+- **Icon colors:** full opacity only — no `/40`-style opacity variants on icon colors.
+- **shadcn:** never overwrite existing component files on install.
+- `TooltipContent` must be a sibling of `TooltipTrigger`; add `flex-1 min-w-0` to
+  `TooltipTrigger` (not a child) for truncation in flex rows.
+- Run `pnpm typecheck` before considering work done — the build won't catch type errors otherwise.
+
+---
+
+## Known gotchas worth remembering
+
+- Counting only fires on the homepage path (see the ⚠️ section above).
+- `'limited'` is overloaded (exhausted trial vs churned sub); disambiguate via `subscriptionEnd`.
+- IPC results are `Uint8Array<ArrayBuffer>` → use `new Blob([result])`.
+- `pdfjs-dist` v5 `page.render(...)` requires a `canvas` field alongside `canvasContext`.
+- `fileKey(file)` = `name-size-lastModified` — the identity used everywhere for dedupe/state.
+- PDF main-process state (`editorBuffer`, `mergedBuffer`) is a module-level singleton (single-window assumption).

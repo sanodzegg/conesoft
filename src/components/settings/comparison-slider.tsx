@@ -57,9 +57,8 @@ export default function ComparisonSlider({ quality, format = 'jpeg', imageSrc, o
     try {
       const result = await window.electron.convert(buffer, fmt, q)
       if (id !== encodeIdRef.current) return
-      const compressed = result.buffer as ArrayBuffer
-      if (onSizesRef.current) onSizesRef.current(buffer.byteLength, compressed.byteLength)
-      const blob = new Blob([compressed], { type: `image/${fmt}` })
+      if (onSizesRef.current) onSizesRef.current(buffer.byteLength, result.byteLength)
+      const blob = new Blob([result], { type: `image/${fmt}` })
       const url = URL.createObjectURL(blob)
       setCompressedSrc(prev => {
         if (prev) URL.revokeObjectURL(prev)

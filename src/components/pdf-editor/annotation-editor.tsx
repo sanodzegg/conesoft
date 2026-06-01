@@ -25,7 +25,7 @@ async function renderPage(page: PDFPageProxy, scale: number): Promise<{ canvas: 
   canvas.width = Math.round(viewport.width)
   canvas.height = Math.round(viewport.height)
   const ctx = canvas.getContext('2d')!
-  await page.render({ canvasContext: ctx, viewport }).promise
+  await page.render({ canvas, canvasContext: ctx, viewport }).promise
   return { canvas, width: canvas.width, height: canvas.height }
 }
 

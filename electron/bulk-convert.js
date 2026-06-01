@@ -8,7 +8,10 @@ const sharpPath = app.isPackaged
   : 'sharp'
 const sharp = require(sharpPath)
 
-const IMAGE_EXTS = new Set(['.png', '.jpg', '.jpeg', '.webp', '.gif', '.tiff', '.tif', '.avif', '.bmp', '.svg'])
+// Mirror the formats this Sharp build can actually decode (see imageEngine.ts).
+// bmp is intentionally excluded — it isn't compiled into this libvips build, so
+// scanning it would only queue files that fail at conversion time.
+const IMAGE_EXTS = new Set(['.png', '.jpg', '.jpeg', '.jfif', '.webp', '.gif', '.tiff', '.tif', '.avif', '.svg'])
 
 function isImage(filePath) {
   return IMAGE_EXTS.has(path.extname(filePath).toLowerCase())

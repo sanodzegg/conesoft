@@ -6,11 +6,28 @@ const PRICE_TO_PLAN: Record<string, string> = {
   'pri_01kr6tq788ans0kc1km9d6c788': 'lifetime',
 }
 
+// Reject signatures older than this to blunt replay attacks (Paddle ts is unix seconds).
+const MAX_SIGNATURE_AGE_SECONDS = 5 * 60
+
+// Length-independent constant-time string comparison — avoids leaking the HMAC via timing.
+function timingSafeEqual(a: string, b: string): boolean {
+  if (a.length !== b.length) return false
+  let mismatch = 0
+  for (let i = 0; i < a.length; i++) mismatch |= a.charCodeAt(i) ^ b.charCodeAt(i)
+  return mismatch === 0
+}
+
 async function verifySignature(rawBody: string, header: string, secret: string): Promise<boolean> {
   const parts = Object.fromEntries(header.split(';').map(p => p.split('=')))
   const ts = parts['ts']
   const h1 = parts['h1']
   if (!ts || !h1) return false
+
+  // Freshness check first — a stale (or absurdly future) timestamp can't be a live event.
+  const tsNum = Number(ts)
+  if (!Number.isFinite(tsNum) || Math.abs(Date.now() / 1000 - tsNum) > MAX_SIGNATURE_AGE_SECONDS) {
+    return false
+  }
 
   const key = await crypto.subtle.importKey(
     'raw',
@@ -21,7 +38,7 @@ async function verifySignature(rawBody: string, header: string, secret: string):
   )
   const sig = await crypto.subtle.sign('HMAC', key, new TextEncoder().encode(`${ts}:${rawBody}`))
   const computed = Array.from(new Uint8Array(sig)).map(b => b.toString(16).padStart(2, '0')).join('')
-  return computed === h1
+  return timingSafeEqual(computed, h1)
 }
 
 Deno.serve(async (req) => {

@@ -128,8 +128,14 @@ function registerConvertHandlers() {
 
     // HEIC/HEIF uses HEVC which sharp's prebuilt libheif omits — decode via heic-convert first.
     // ftyp box is at bytes 4-7; major brand at 8-11 distinguishes HEIC from MP4/MOV.
+    // AVIF shares the generic 'mif1'/'msf1' brands with HEIF but is AV1, not HEVC —
+    // sharp decodes it natively, so it must NOT be sent to heic-convert. Detect the
+    // 'avif'/'avis' brand anywhere in the ftyp box (major + compatible brands) and skip.
     const brand = buf.subarray(8, 12).toString('ascii')
-    const isHeic = buf.subarray(4, 8).toString('ascii') === 'ftyp' &&
+    const isFtyp = buf.subarray(4, 8).toString('ascii') === 'ftyp'
+    const ftypBox = buf.subarray(0, 32).toString('ascii')
+    const isAvif = ftypBox.includes('avif') || ftypBox.includes('avis') || ftypBox.includes('av01')
+    const isHeic = isFtyp && !isAvif &&
       (brand.startsWith('hei') || brand.startsWith('hev') || brand === 'mif1' || brand === 'msf1')
     if (isHeic) {
       buf = Buffer.from(await heicConvert({ buffer: buf, format: 'PNG', quality: 1 }))
