@@ -5,6 +5,73 @@ audit pass are listed at the bottom for context.
 
 ---
 
+## 🎯 Tomorrow's focus — `tokens_used` refactor (spec)
+
+Replace the derived weighted-score quota with an explicit, stored **`tokens_used`**
+counter. Keep per-category counts for analytics/bonuses. Decouples the quota *currency*
+from *what was converted*, and locks historical pricing so changing weights later doesn't
+re-price the past.
+
+### Model
+- **`tokens_used`** — lifetime, monotonic (only ever increments). Source of truth for the
+  trial gate + a "total ever" stat.
+  - **DB:** new column `conversion_counts.tokens_used int not null default 0` (NOT on `users`).
+  - **Local:** add `tokens_used` to the `localStorage` counts object — authoritative offline/signed-out.
+- **`daily_tokens`** — limited-tier daily allowance. **Local only**, resets every 24h
+  (reuse the existing `conesoft_daily_counts` + `resetAt` mechanism). A lifetime
+  `tokens_used` can't express "used today," so the daily tier needs its own counter.
+- **Per-category counts** (`image/document/video/audio_count`) — keep in DB + local,
+  **for analytics/bonuses only**. After this change they are NOT arithmetically linked to
+  `tokens_used` (a bonus/promo can make them diverge). `tokens_used` is the quota authority.
+
+### Token costs (integer, replaces fractional weights)
+- image = **1**, document = **5**, video = **5**, audio = **5** (mirrors today's "credits").
+- **`TRIAL_TOKEN_LIMIT = 100`** (was score threshold 1.0 × TOKEN_TOTAL 100).
+- **`DAILY_TOKEN_LIMIT`** — ⚠️ product decision. Today's per-category daily limits
+  (img 20 / doc 20 / vid 10 / aud 10) don't map to one number; pick a single daily token
+  budget (suggest **20**/day = 20 images or 4 docs). Set this before building.
+
+### Spend path
+Centralize into **one helper** (e.g. `spendTokens(engine, plan)`) so every conversion
+path uses identical logic — and so wiring bulk/favicon/compression later (item #1) is a
+one-line change.
+1. **Reserve** before converting: trial → `tokens_used + cost <= TRIAL_TOKEN_LIMIT`;
+   limited → `daily_tokens + cost <= DAILY_TOKEN_LIMIT`. Return `[refund, reserved]`.
+2. **On success:** `tokens_used += cost` AND `counts[engine] += 1` (local), debounced-sync both.
+   Increment by the cost **at spend time** — never recompute from counts (that's the point).
+3. **On failure:** `refund()` reverses exactly what was reserved.
+
+### Flip / reconcile (unchanged semantics)
+- `plan === 'trial' && tokens_used >= TRIAL_TOKEN_LIMIT` → flip to `limited` (`onPlanExhausted`).
+- Reconcile `limited → trial` still requires `tokens_used < limit` **and** `!subscriptionEnd`
+  (keeps the audit fix protecting churned subscribers).
+
+### Sync (reuses existing machinery)
+- Add `tokens_used` to the `conversion_counts` upsert + the sign-in **max-merge**
+  (`Math.max(local, server)` — safe because it's monotonic) + the Realtime handler.
+- All guarded by `if (!user || !navigator.onLine)` → offline/signed-out untouched.
+
+### Migration
+- `ALTER TABLE conversion_counts ADD COLUMN tokens_used int not null default 0;`
+- Backfill once: `tokens_used = image_count*1 + document_count*5 + video_count*5 + audio_count*5`.
+
+### Files to touch
+- `src/lib/useConversionCount.ts` — drop `getTrialScore`-from-counts as the gate; add
+  `tokens_used` local state + `spendTokens` helper; extend merge/sync/Realtime.
+- `src/services/conversionService.ts` — reserve/refund via `spendTokens`.
+- `src/components/profile/UsageCard.tsx` — read `tokens_used` directly (no recompute).
+- `src/types` if a counts interface gains `tokens_used`.
+- `supabase/migrations/` — new migration (column + backfill).
+
+### Open decisions before coding
+- [ ] `DAILY_TOKEN_LIMIT` value (suggest 20/day).
+- [ ] Confirm token costs (1 / 5 / 5 / 5) are final.
+
+> Pairs naturally with item #1 below — once `spendTokens` is the single entry point,
+> routing bulk/favicon/compression through it (if you decide they should count) is trivial.
+
+---
+
 ## 🔴 Decisions needed / must-do before release
 
 ### 1. Conversion counting only fires on the homepage
