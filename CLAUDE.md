@@ -4,7 +4,7 @@ Reference for AI-assisted development sessions. Reflects the **actual code** as 
 last audit (see `TODO.md` for open work). When in doubt, trust the code over this file
 and update this file when you learn something non-obvious.
 
-Current version: **1.9.0** (`package.json`)
+Current version: **1.9.1** (`package.json`)
 
 ---
 
@@ -124,8 +124,8 @@ This is the most intricate subsystem. Source of truth:
 ### Plans
 `trial | limited | monthly | annual | lifetime` (enforced by a DB CHECK constraint).
 
-- **trial** — one-time weighted budget (see below). When exhausted → flips to `limited`.
-- **limited** — daily per-category budget. Means **either** an exhausted trial **or** a
+- **trial** — one-time **token budget** (100 tokens; see below). When exhausted → flips to `limited`.
+- **limited** — daily **token budget** (50/day). Means **either** an exhausted trial **or** a
   churned/expired subscription. The two are disambiguated by `subscriptionEnd`:
   non-null ⇒ former subscriber (never resurrect to trial).
 - **monthly / annual** — unlimited while active. `effectivePlan()` downgrades them to
@@ -136,42 +136,59 @@ This is the most intricate subsystem. Source of truth:
 `localStorage` and kept live via a Supabase Realtime subscription on `users` (so manual
 DB edits / webhook updates propagate). `useAuth` is just a re-export of `useAuthStore`.
 
-### Trial budget (weighted score)
-- Weights: image `1/100`, document/video/audio `1/20`. Score = Σ min(count·weight, 1), capped per category, threshold **1.0**.
-- Mapped to **100 user-visible credits** (`TOKEN_TOTAL`): image = 1 cr, others = 5 cr.
-  So 100 images, or 20 of any other type, or any mix summing to 100 credits.
-- Stored in `localStorage` (`conesoft_conversion_counts`), reactive via `useCountsStore`.
+### Token model (the quota currency)
+Usage is metered in **tokens**, stored explicitly (not derived). Three meters, each with one
+job (`src/lib/useConversionCount.ts`):
+- **`tokens_used`** — lifetime trial budget consumed, **caps at `TRIAL_TOKEN_LIMIT` (100)**.
+  Drives the trial gate + the server-side reset. DB column `conversion_counts.tokens_used`,
+  mirrored to `localStorage` (`conesoft_conversion_counts`).
+- **daily tokens** — the limited tier's allowance, `DAILY_TOKEN_LIMIT` (**50/day**). Local
+  only (`conesoft_daily_counts` with a `resetAt`, auto-resets after 24h) — never synced.
+- **per-category counts** (`image/document/video/audio_count`) — every conversion ever, for
+  analytics/bonuses. **Decoupled** from tokens (a bonus/promo can make them diverge).
 
-### Limited (daily) budget
-- Daily limits: image 20, document 20, video 10, audio 10. Stored in
-  `conesoft_daily_counts` with a `resetAt` epoch; auto-resets after 24h.
+**Token costs per conversion:** image **1**, document **5**, video **8**, audio **6**
+(`TOKEN_COSTS`). So the 100-token trial ≈ 100 images, or 20 docs, or ~12 videos, or any mix.
 
-### Reservation + refund (parallel-safe)
-- `incrementLocalCount(engine, plan)` **reserves a slot up front** and returns
-  `[refund, reserved]`. `reserved=false` ⇒ limit full, caller must not proceed.
-  trial/paid → increments lifetime total (always reserves); limited → checks daily window.
-- `convertFile` (conversionService) reserves before converting and calls `refund()` on
-  failure, so failed conversions don't burn a slot.
-- `convertAll` assigns each file an effective plan from a single shared remaining-score
-  pool, pre-flights daily blocks, then dispatches images at concurrency 4 and
-  non-images sequentially.
+### Spend = trial-first, then spill into daily
+`spendTokens(engine, plan)` is the single reservation primitive (replaced the old
+`incrementLocalCount`). Free tiers (trial **and** limited) draw from the remaining trial
+budget first, then **spill** the remainder into the daily allowance — so one conversion can
+straddle the boundary (at 93/100 an 8-token video = 7 trial + 1 daily → daily `1/50`, and
+`tokens_used` lands on exactly 100). Returns `[refund, reserved]`; `reserved=false` ⇒ the
+combined trial+daily budget can't cover it. Paid plans are ungated (count only). `refund()`
+reverses the exact split. Reservation is a synchronous localStorage RMW, so image concurrency
+(4) is parallel-safe.
 
-### Server sync
-- `useConversionCount(user)`: on sign-in, merges server vs local (max per category) and
-  pushes back. Realtime `UPDATE` on `conversion_counts` applies admin edits verbatim;
-  our own echoes are skipped via `ownPushTimestamps`. `syncCountToServer()` is debounced 800 ms.
-- `reconcilePlanWithCounts` reverts `limited → trial` only when counts drop below
-  threshold **and** there's no `subscriptionEnd` (protects churned subscribers).
+- `convertFile` reserves via `spendTokens` before converting, refunds on failure.
+- `convertAll` pre-flights the same spill simulation to skip files the budget can't cover (one
+  toast), then dispatches images at concurrency 4 / non-images sequentially.
+- The trial→limited flip fires from `onConversionSuccess` (`main.tsx`) once `tokens_used` hits
+  the cap (plus an upfront flip if already exhausted entering the batch).
 
-### ⚠️ Where counting is wired (and where it ISN'T)
-The **only** place counts actually increment is `conversionService.convertFile`
-(`incrementLocalCount`). The shared `onConversionSuccess` in `main.tsx` only triggers
-server sync + an exhaustion check — **it does not increment.**
+### Server sync + the reset
+- `useConversionCount(user)`: on sign-in **max-merges** server vs local (counts **and**
+  `tokens_used` — all monotonic) and pushes back. Realtime `UPDATE` on `conversion_counts`
+  applies admin edits verbatim; our own echoes are skipped via `ownPushTimestamps`.
+  `syncCountToServer()` debounced 800 ms. `useCountsStore` exposes `counts`, `tokensUsed`,
+  `dailyTokens` reactively.
+- **limited → trial reset is server-side**: DB trigger `reset_plan_on_low_tokens` on
+  `conversion_counts` sets `plan='trial'` when `tokens_used < 100` **and**
+  `subscription_end IS NULL` (churned-subscriber guard). It reaches the app via the
+  `users`-table Realtime subscription in `useAuthStore`. The old client-side
+  `reconcilePlanWithCounts` is gone. ⚠️ Caveat: sign-in still `max`-merges `tokens_used`, so
+  an admin reset only "sticks" while the user's app is **running**; reset while it's closed
+  can be re-inflated on next sign-in (accepted — see `TODO.md`).
 
-→ Therefore **only the homepage converter** counts toward limits. **Bulk converter,
-watch mode, favicon generator, and image-compression bypass counting and limits
-entirely.** This is a known open decision — see `TODO.md` #1. Limit-enforcement UI
-(`isAtLimit`) currently exists only in the homepage dropbox.
+### ⚠️ Where metering is wired (and where it ISN'T)
+The **only** place tokens are spent is `conversionService.convertFile` (`spendTokens`). The
+shared `onConversionSuccess` in `main.tsx` only triggers server sync + the exhaustion flip —
+**it does not spend.**
+
+→ Therefore **only the homepage converter** meters usage. **Bulk converter, watch mode,
+favicon generator, and image-compression bypass tokens and limits entirely.** Known open
+decision — see `TODO.md` #1. Limit-enforcement UI (`isAtLimit`) exists only in the homepage
+dropbox. (`spendTokens` is the single entry point, so wiring the others in later is small.)
 
 ---
 

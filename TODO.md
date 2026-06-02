@@ -14,9 +14,11 @@ re-price the past.
 
 **Shipped:** costs image **1** / document **5** / video **8** / audio **6**;
 `TRIAL_TOKEN_LIMIT=100`, `DAILY_TOKEN_LIMIT=50`. `spendTokens()` helper; token-based
-gate/flip/UsageCard; sync carries `tokens_used` (max-merge). Migration
-`20260603120000_add_tokens_used.sql` (backfill at OLD 1/5/5/5 so existing standing is kept).
-The limited→trial reset moved **server-side**: trigger `reset_plan_on_low_tokens`
+gate/flip/UsageCard; sync carries `tokens_used` (max-merge). **Spend spills trial→daily**:
+a conversion drains remaining trial first, then the overflow lands in the daily bucket (so
+93/100 + an 8-token video = 7 trial + 1 daily → daily 1/50), and `tokens_used` **caps at 100**.
+Migration `20260603120000_add_tokens_used.sql` (backfill at OLD 1/5/5/5 so existing standing
+is kept). The limited→trial reset moved **server-side**: trigger `reset_plan_on_low_tokens`
 (`20260603130000`), keeping the `subscription_end IS NULL` churned-subscriber guard.
 Client-side `reconcilePlanWithCounts` removed.
 
@@ -30,60 +32,17 @@ tell the customer to keep the app open during a reset. Proper fix if it ever bec
 frequent: **recency-based merge** on sign-in (trust whichever side changed most recently —
 server `updated_at` vs last local write — instead of blindly taking `max`).
 
-### Model
-- **`tokens_used`** — lifetime, monotonic (only ever increments). Source of truth for the
-  trial gate + a "total ever" stat.
-  - **DB:** new column `conversion_counts.tokens_used int not null default 0` (NOT on `users`).
-  - **Local:** add `tokens_used` to the `localStorage` counts object — authoritative offline/signed-out.
-- **`daily_tokens`** — limited-tier daily allowance. **Local only**, resets every 24h
-  (reuse the existing `conesoft_daily_counts` + `resetAt` mechanism). A lifetime
-  `tokens_used` can't express "used today," so the daily tier needs its own counter.
-- **Per-category counts** (`image/document/video/audio_count`) — keep in DB + local,
-  **for analytics/bonuses only**. After this change they are NOT arithmetically linked to
-  `tokens_used` (a bonus/promo can make them diverge). `tokens_used` is the quota authority.
-
-### Token costs (integer, replaces fractional weights)
-- image = **1**, document = **5**, video = **5**, audio = **5** (mirrors today's "credits").
-- **`TRIAL_TOKEN_LIMIT = 100`** (was score threshold 1.0 × TOKEN_TOTAL 100).
-- **`DAILY_TOKEN_LIMIT`** — ⚠️ product decision. Today's per-category daily limits
-  (img 20 / doc 20 / vid 10 / aud 10) don't map to one number; pick a single daily token
-  budget (suggest **20**/day = 20 images or 4 docs). Set this before building.
-
-### Spend path
-Centralize into **one helper** (e.g. `spendTokens(engine, plan)`) so every conversion
-path uses identical logic — and so wiring bulk/favicon/compression later (item #1) is a
-one-line change.
-1. **Reserve** before converting: trial → `tokens_used + cost <= TRIAL_TOKEN_LIMIT`;
-   limited → `daily_tokens + cost <= DAILY_TOKEN_LIMIT`. Return `[refund, reserved]`.
-2. **On success:** `tokens_used += cost` AND `counts[engine] += 1` (local), debounced-sync both.
-   Increment by the cost **at spend time** — never recompute from counts (that's the point).
-3. **On failure:** `refund()` reverses exactly what was reserved.
-
-### Flip / reconcile (unchanged semantics)
-- `plan === 'trial' && tokens_used >= TRIAL_TOKEN_LIMIT` → flip to `limited` (`onPlanExhausted`).
-- Reconcile `limited → trial` still requires `tokens_used < limit` **and** `!subscriptionEnd`
-  (keeps the audit fix protecting churned subscribers).
-
-### Sync (reuses existing machinery)
-- Add `tokens_used` to the `conversion_counts` upsert + the sign-in **max-merge**
-  (`Math.max(local, server)` — safe because it's monotonic) + the Realtime handler.
-- All guarded by `if (!user || !navigator.onLine)` → offline/signed-out untouched.
-
-### Migration
-- `ALTER TABLE conversion_counts ADD COLUMN tokens_used int not null default 0;`
-- Backfill once: `tokens_used = image_count*1 + document_count*5 + video_count*5 + audio_count*5`.
-
-### Files to touch
-- `src/lib/useConversionCount.ts` — drop `getTrialScore`-from-counts as the gate; add
-  `tokens_used` local state + `spendTokens` helper; extend merge/sync/Realtime.
-- `src/services/conversionService.ts` — reserve/refund via `spendTokens`.
-- `src/components/profile/UsageCard.tsx` — read `tokens_used` directly (no recompute).
-- `src/types` if a counts interface gains `tokens_used`.
-- `supabase/migrations/` — new migration (column + backfill).
-
-### Decisions made
-- [x] `DAILY_TOKEN_LIMIT` = **50/day**.
-- [x] Token costs = **image 1 / document 5 / video 8 / audio 6** (heavier media). Backfill stays 1/5/5/5.
+### Final model (authoritative description: CLAUDE.md → "Conversion Counting & Plans")
+- Three meters: **`tokens_used`** (trial budget consumed, **caps at 100**; DB column + local) ·
+  **daily tokens** (50/day; local, 24h reset) · **per-category counts** (analytics, decoupled).
+- Costs: image **1** / document **5** / video **8** / audio **6**. Existing rows backfilled at
+  the OLD flat 1/5/5/5 so standing is preserved; new costs apply going forward.
+- **Spend = trial-first, then spill into daily** via the single `spendTokens(engine, plan)`
+  helper — one conversion can straddle the boundary (93/100 + 8-token video → 7 trial + 1
+  daily, daily 1/50, `tokens_used` lands on 100). Reserve up front; `refund()` reverses the
+  exact split on failure. Paid plans ungated.
+- Migrations: `20260603120000_add_tokens_used` (column + backfill),
+  `20260603130000_reset_plan_on_low_tokens` (server-side limited→trial reset, `subscription_end IS NULL` guard).
 
 > Pairs naturally with item #1 below — once `spendTokens` is the single entry point,
 > routing bulk/favicon/compression through it (if you decide they should count) is trivial.
