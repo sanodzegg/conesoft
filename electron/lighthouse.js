@@ -1,212 +1,64 @@
-const { ipcMain, app } = require('electron')
+const { ipcMain, app, utilityProcess } = require('electron')
 const path = require('path')
 const fs = require('fs')
-const { execFile, spawn } = require('child_process') // execFile used for lighthouse-run
-const https = require('https')
 
-const LIGHTHOUSE_DIR = path.join(app.getPath('userData'), 'lighthouse-cli')
-const LIGHTHOUSE_BIN = path.join(LIGHTHOUSE_DIR, 'node_modules', '.bin', 'lighthouse')
-const STATUS_FILE = path.join(LIGHTHOUSE_DIR, 'installed.json')
+// Lighthouse is bundled as a regular dependency and runs in-process (via a utility
+// process) against the bundled Playwright Chromium. No runtime npm install — the old
+// design spawned `npm install lighthouse` into userData, which crashed in packaged
+// builds (GUI apps don't get the shell PATH, so npm was never found). Lighthouse now
+// updates with normal app releases.
 
-function isInstalled() {
-  return fs.existsSync(LIGHTHOUSE_BIN) && fs.existsSync(STATUS_FILE)
-}
+const AUDIT_TIMEOUT_MS = 3 * 60 * 1000
 
 function getVersion() {
   try {
-    const data = JSON.parse(fs.readFileSync(STATUS_FILE, 'utf8'))
-    return data.version ?? null
+    return require('lighthouse/package.json').version
   } catch {
     return null
   }
 }
 
-function registerLighthouseHandlers(mainWindow) {
+function registerLighthouseHandlers() {
+  // Remove the old runtime-installed CLI dir if a previous version left one behind.
+  try {
+    fs.rmSync(path.join(app.getPath('userData'), 'lighthouse-cli'), { recursive: true, force: true })
+  } catch {}
+
   ipcMain.handle('lighthouse-status', () => {
-    return { installed: isInstalled(), version: getVersion() }
-  })
-
-  ipcMain.handle('lighthouse-check-update', () => {
-    return new Promise((resolve) => {
-      const req = https.get('https://registry.npmjs.org/lighthouse/latest', { headers: { 'User-Agent': 'conesoft-app' } }, (res) => {
-        let data = ''
-        res.on('data', chunk => { data += chunk })
-        res.on('end', () => {
-          try {
-            const { version } = JSON.parse(data)
-            resolve({ latestVersion: version })
-          } catch {
-            resolve({ latestVersion: null })
-          }
-        })
-      })
-      req.on('error', () => resolve({ latestVersion: null }))
-      req.setTimeout(8000, () => { req.destroy(); resolve({ latestVersion: null }) })
-    })
-  })
-
-  ipcMain.handle('lighthouse-install', async () => {
-    return new Promise((resolve) => {
-      fs.mkdirSync(LIGHTHOUSE_DIR, { recursive: true })
-
-      const pkgPath = path.join(LIGHTHOUSE_DIR, 'package.json')
-      if (!fs.existsSync(pkgPath)) {
-        fs.writeFileSync(pkgPath, JSON.stringify({ name: 'conesoft-lighthouse', version: '1.0.0', private: true }))
-      }
-
-      const npm = process.platform === 'win32' ? 'npm.cmd' : 'npm'
-      // shell:true on Windows — Node refuses to spawn .cmd files directly (EINVAL) since the
-      // CVE-2024-27980 fix. On posix npm is a normal executable so no shell is needed.
-      const child = spawn(npm, ['install', 'lighthouse@latest', '--save-exact'], {
-        cwd: LIGHTHOUSE_DIR,
-        shell: process.platform === 'win32',
-      })
-
-      // If npm isn't on PATH, spawn emits 'error' and 'close' never fires — without this the
-      // install would hang forever. Resolve cleanly with an actionable message instead.
-      child.on('error', (err) => {
-        const msg = err.code === 'ENOENT'
-          ? 'npm was not found on this system. Node.js (which includes npm) is required to install the Lighthouse engine.'
-          : err.message
-        if (!mainWindow.isDestroyed()) {
-          mainWindow.webContents.send('lighthouse-install-progress', { status: 'error', error: msg })
-        }
-        resolve({ success: false, error: msg })
-      })
-
-      // npm prints one "added N packages" line at the end — we can't get real per-package
-      // progress, so we simulate smooth fill by counting stderr dots and lines over time.
-      let tick = 0
-      const TOTAL_TICKS = 80 // rough number of output lines a fresh lighthouse install produces
-
-      function sendProgress(pct) {
-        if (!mainWindow.isDestroyed()) {
-          mainWindow.webContents.send('lighthouse-install-progress', { status: 'progress', pct })
-        }
-      }
-
-      child.stdout.on('data', () => {
-        tick = Math.min(tick + 1, TOTAL_TICKS - 1)
-        sendProgress(Math.round((tick / TOTAL_TICKS) * 95))
-      })
-
-      child.stderr.on('data', () => {
-        tick = Math.min(tick + 1, TOTAL_TICKS - 1)
-        sendProgress(Math.round((tick / TOTAL_TICKS) * 95))
-      })
-
-      child.on('close', (code) => {
-        if (code !== 0) {
-          mainWindow.webContents.send('lighthouse-install-progress', { status: 'error', error: `npm exited with code ${code}` })
-          resolve({ success: false, error: `npm exited with code ${code}` })
-          return
-        }
-        try {
-          const pkgJson = JSON.parse(fs.readFileSync(path.join(LIGHTHOUSE_DIR, 'node_modules', 'lighthouse', 'package.json'), 'utf8'))
-          fs.writeFileSync(STATUS_FILE, JSON.stringify({ version: pkgJson.version }))
-          mainWindow.webContents.send('lighthouse-install-progress', { status: 'done', version: pkgJson.version })
-          resolve({ success: true, version: pkgJson.version })
-        } catch (e) {
-          mainWindow.webContents.send('lighthouse-install-progress', { status: 'error', error: e.message })
-          resolve({ success: false, error: e.message })
-        }
-      })
-    })
+    return { installed: true, version: getVersion() }
   })
 
   ipcMain.handle('lighthouse-run', async (_e, { url, strategy = 'desktop' }) => {
-    if (!isInstalled()) return { success: false, error: 'Lighthouse not installed' }
-
-    // Get Playwright chromium path
+    // Same bundled Chromium the screenshot/website-pdf features use. screenshot.js sets
+    // PLAYWRIGHT_BROWSERS_PATH for packaged builds before playwright-core is first required.
     let chromiumPath
     try {
       const { chromium } = require('playwright-core')
       chromiumPath = chromium.executablePath()
+      if (!chromiumPath || !fs.existsSync(chromiumPath)) throw new Error('missing')
     } catch {
-      return { success: false, error: 'Chromium not available' }
+      return { success: false, error: 'Browser engine is missing from this build. Reinstall the app to restore Lighthouse.' }
     }
 
     return new Promise((resolve) => {
-      const args = [
-        url,
-        '--output=json',
-        '--output-path=stdout',
-        '--chrome-path=' + chromiumPath,
-        '--chrome-flags=--headless=new --no-sandbox --disable-gpu --disable-extensions',
-        '--only-categories=performance,accessibility,best-practices,seo',
-        '--quiet',
-        '--no-enable-error-reporting',
-        ...(strategy === 'desktop' ? ['--preset=desktop'] : []),
-      ]
+      const worker = utilityProcess.fork(path.join(__dirname, 'lighthouse-worker.js'))
+      let settled = false
 
-      execFile(LIGHTHOUSE_BIN, args, { maxBuffer: 10 * 1024 * 1024 }, (err, stdout) => {
-        if (err && !stdout) {
-          resolve({ success: false, error: err.message })
-          return
-        }
-        try {
-          const report = JSON.parse(stdout)
-          const cats = report.categories
-          const audits = report.audits
+      const finish = (result) => {
+        if (settled) return
+        settled = true
+        clearTimeout(timer)
+        resolve(result)
+        try { worker.kill() } catch {}
+      }
 
-          resolve({
-            success: true,
-            scores: {
-              performance: Math.round((cats.performance?.score ?? 0) * 100),
-              accessibility: Math.round((cats.accessibility?.score ?? 0) * 100),
-              bestPractices: Math.round((cats['best-practices']?.score ?? 0) * 100),
-              seo: Math.round((cats.seo?.score ?? 0) * 100),
-            },
-            webVitals: {
-              lcp: audits['largest-contentful-paint']?.displayValue ?? null,
-              fcp: audits['first-contentful-paint']?.displayValue ?? null,
-              cls: audits['cumulative-layout-shift']?.displayValue ?? null,
-              tbt: audits['total-blocking-time']?.displayValue ?? null,
-              si: audits['speed-index']?.displayValue ?? null,
-            },
-            topIssues: Object.values(audits)
-              .filter((a) => a.score !== null && a.score < 0.9 && a.details?.type !== 'debugdata')
-              .sort((a, b) => (a.score ?? 1) - (b.score ?? 1))
-              .slice(0, 10)
-              .map((a) => {
-                // Extract detail rows from the audit's details table
-                let items = []
-                const d = a.details
-                if (d && (d.type === 'table' || d.type === 'opportunity') && Array.isArray(d.items)) {
-                  items = d.items.slice(0, 5).map((item) => {
-                    const row = {}
-                    // Pull out the most useful fields from each row
-                    if (item.node?.snippet) row.node = item.node.snippet
-                    if (item.node?.nodeLabel) row.nodeLabel = item.node.nodeLabel
-                    if (item.url) row.url = typeof item.url === 'string' ? item.url : item.url?.value ?? null
-                    if (item.source?.url) row.url = item.source.url
-                    if (item.label) row.label = item.label
-                    if (item.groupLabel) row.label = item.groupLabel
-                    if (item.duration != null) row.duration = Math.round(item.duration) + ' ms'
-                    if (item.wastedMs != null) row.wastedMs = Math.round(item.wastedMs) + ' ms'
-                    if (item.wastedBytes != null) row.wastedBytes = Math.round(item.wastedBytes / 1024) + ' KB'
-                    if (item.totalBytes != null) row.totalBytes = Math.round(item.totalBytes / 1024) + ' KB'
-                    if (item.transferSize != null) row.transferSize = Math.round(item.transferSize / 1024) + ' KB'
-                    if (item.cacheLifetimeMs != null) row.cacheLifetime = Math.round(item.cacheLifetimeMs / 1000) + ' s'
-                    return row
-                  }).filter((row) => Object.keys(row).length > 0)
-                }
-                return {
-                  id: a.id,
-                  title: a.title,
-                  description: a.description
-                    ? a.description.replace(/\[([^\]]+)\]\([^)]+\)/g, '$1').replace(/`/g, '').slice(0, 200)
-                    : null,
-                  score: a.score,
-                  displayValue: a.displayValue ?? null,
-                  items,
-                }
-              }),
-          })
-        } catch (e) {
-          resolve({ success: false, error: 'Failed to parse report' })
-        }
-      })
+      const timer = setTimeout(() => {
+        finish({ success: false, error: 'Audit timed out after 3 minutes' })
+      }, AUDIT_TIMEOUT_MS)
+
+      worker.on('message', finish)
+      worker.on('exit', () => finish({ success: false, error: 'Audit process exited unexpectedly' }))
+      worker.postMessage({ url, strategy, chromiumPath })
     })
   })
 }

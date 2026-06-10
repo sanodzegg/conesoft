@@ -49,16 +49,9 @@ contextBridge.exposeInMainWorld('electron', {
   batchRenamePreview: (opts) => ipcRenderer.invoke('batch-rename-preview', opts),
   batchRenameApply: (opts) => ipcRenderer.invoke('batch-rename-apply', opts),
 
-  // Lighthouse
+  // Lighthouse (bundled — no install step)
   lighthouseStatus: () => ipcRenderer.invoke('lighthouse-status'),
-  lighthouseCheckUpdate: () => ipcRenderer.invoke('lighthouse-check-update'),
-  lighthouseInstall: () => ipcRenderer.invoke('lighthouse-install'),
   lighthouseRun: (opts) => ipcRenderer.invoke('lighthouse-run', opts),
-  onLighthouseInstallProgress: (cb) => {
-    const handler = (_e, data) => cb(data)
-    ipcRenderer.on('lighthouse-install-progress', handler)
-    return () => ipcRenderer.removeListener('lighthouse-install-progress', handler)
-  },
 
   // PDF Editor
   pdfEditorPickFile: () => ipcRenderer.invoke('pdf-editor-pick-file'),

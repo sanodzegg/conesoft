@@ -10,7 +10,7 @@ import {
     SheetTrigger,
 } from "../ui/sheet";
 import { cn } from "@/lib/utils";
-import { Camera, ChevronRight, Crop, Download, FileDown, FileEdit, FilePlus, FolderInput, FolderSync, Gauge, Globe, ImageIcon, LayoutGrid, Lock, PenLine, Pipette, Star, Tag, TextCursorInput, User, WifiOff, Zap } from "lucide-react";
+import { Camera, ChevronRight, Crop, FileDown, FileEdit, FilePlus, FolderInput, FolderSync, Gauge, Globe, ImageIcon, LayoutGrid, Lock, PenLine, Pipette, Star, Tag, TextCursorInput, User, WifiOff, Zap } from "lucide-react";
 import { useAuth } from "@/lib/useAuth";
 import { PRICING_DISMISSED_KEY } from "./navigation";
 
@@ -30,60 +30,20 @@ function renderChild(
     isOnline: boolean,
     favorites: string[],
     toggleFavorite: (href: string) => void,
-    lighthouseInstalled: boolean,
-    onInstallLighthouse: () => void,
-    lighthouseInstalling: boolean,
-    lighthousePct: number,
 ) {
     const childLocked = isLimited && !!child.proOnly
-    const needsDownload = child.requiresDownload && !lighthouseInstalled
-    const isInstalling = child.requiresDownload && lighthouseInstalling
-    const isDisabled = child.disabled || (!isOnline && child.requiresInternet) || childLocked || needsDownload
+    const isDisabled = child.disabled || (!isOnline && child.requiresInternet) || childLocked
     const isFav = favorites.includes(child.href)
-
-    if (isInstalling) {
-        const r = 9
-        const circ = 2 * Math.PI * r
-        const offset = circ - (lighthousePct / 100) * circ
-        return (
-            <div key={child.href} className="flex items-center gap-2.5 rounded-lg p-2.5 2xl:p-3">
-                <div className="shrink-0 text-muted-foreground relative size-5">
-                    <svg className="size-5 -rotate-90" viewBox="0 0 24 24">
-                        <circle cx="12" cy="12" r={r} fill="none" stroke="currentColor" strokeWidth="2.5" className="text-border" />
-                        <circle cx="12" cy="12" r={r} fill="none" strokeWidth="2.5"
-                            strokeDasharray={circ} strokeDashoffset={offset}
-                            strokeLinecap="round" className="stroke-primary transition-all duration-300"
-                        />
-                    </svg>
-                </div>
-                <div className="flex-1">
-                    <p className="text-sm 2xl:text-base font-medium leading-none mb-0.5">{child.title}</p>
-                    <p className="text-xs 2xl:text-sm text-muted-foreground">Downloading… {lighthousePct}%</p>
-                </div>
-            </div>
-        )
-    }
 
     if (isDisabled) return (
         <div
             key={child.href}
-            onClick={needsDownload ? onInstallLighthouse : undefined}
-            className={cn(
-                "group flex items-center gap-2.5 rounded-lg p-2.5 2xl:p-3",
-                needsDownload ? "opacity-50 cursor-pointer hover:opacity-80 transition-opacity" : "opacity-40 cursor-not-allowed"
-            )}
+            className="group flex items-center gap-2.5 rounded-lg p-2.5 2xl:p-3 opacity-40 cursor-not-allowed"
         >
-            <div className="shrink-0 text-muted-foreground">
-                {needsDownload
-                    ? <><span className="group-hover:hidden block">{child.icon}</span><Download className="size-5 hidden group-hover:block" /></>
-                    : child.icon
-                }
-            </div>
+            <div className="shrink-0 text-muted-foreground">{child.icon}</div>
             <div className="flex-1">
                 <p className="text-sm 2xl:text-base font-medium leading-none mb-0.5">{child.title}</p>
-                <p className="text-xs 2xl:text-sm text-muted-foreground">
-                    {needsDownload ? 'Click to download Lighthouse CLI' : child.description}
-                </p>
+                <p className="text-xs 2xl:text-sm text-muted-foreground">{child.description}</p>
             </div>
             {childLocked && <Lock className="size-4 shrink-0 text-muted-foreground" />}
             {!isOnline && child.requiresInternet && <WifiOff className="size-4 2xl:size-5 text-destructive shrink-0" />}
@@ -117,7 +77,7 @@ function renderChild(
     )
 }
 
-type GroupChild = { title: string; description: string; href: string; icon: React.ReactNode; disabled?: boolean; requiresInternet?: boolean; proOnly?: boolean; requiresDownload?: boolean }
+type GroupChild = { title: string; description: string; href: string; icon: React.ReactNode; disabled?: boolean; requiresInternet?: boolean; proOnly?: boolean }
 type Extension = { kind: 'group'; title: string; icon: React.ReactNode; proOnly?: boolean; children: GroupChild[] }
 
 const extensions: Extension[] = [
@@ -208,7 +168,6 @@ const extensions: Extension[] = [
                 href: '/extensions/lighthouse',
                 icon: <Gauge className="size-5" />,
                 requiresInternet: true,
-                requiresDownload: true,
                 proOnly: true,
             },
         ],
@@ -252,35 +211,6 @@ export function NavigationSecondary() {
     })
     const [isOnline, setIsOnline] = useState(navigator.onLine)
     const [showPricing, setShowPricing] = useState(false)
-    const [lighthouseInstalled, setLighthouseInstalled] = useState(false)
-    const [lighthouseInstalling, setLighthouseInstalling] = useState(false)
-    const [lighthousePct, setLighthousePct] = useState(0)
-
-    useEffect(() => {
-        window.electron.lighthouseStatus().then((s: { installed: boolean }) => setLighthouseInstalled(s.installed))
-        const unsub = window.electron.onLighthouseInstallProgress((data) => {
-            if (data.status === 'progress') {
-                setLighthousePct(data.pct ?? 0)
-            } else if (data.status === 'done') {
-                setLighthousePct(100)
-                setTimeout(() => {
-                    setLighthouseInstalling(false)
-                    setLighthousePct(0)
-                    setLighthouseInstalled(true)
-                }, 600)
-            } else if (data.status === 'error') {
-                setLighthouseInstalling(false)
-                setLighthousePct(0)
-            }
-        })
-        return unsub
-    }, [])
-
-    function installLighthouse() {
-        setLighthouseInstalling(true)
-        setLighthousePct(0)
-        window.electron.lighthouseInstall()
-    }
 
     function toggleGroup(title: string) {
         setExpandedGroups(prev => {
@@ -356,7 +286,7 @@ export function NavigationSecondary() {
                                     </button>
                                     {isExpanded && (
                                         <div className="ml-4 mt-1 flex flex-col gap-1 border-l border-border pl-3">
-                                            {favChildren.map(child => renderChild(child, isLimited, isOnline, favorites, toggleFavorite, lighthouseInstalled, installLighthouse, lighthouseInstalling, lighthousePct))}
+                                            {favChildren.map(child => renderChild(child, isLimited, isOnline, favorites, toggleFavorite))}
                                         </div>
                                     )}
                                 </div>
@@ -392,7 +322,7 @@ export function NavigationSecondary() {
                                     </button>
                                     {isExpanded && (
                                         <div className="ml-4 mt-1 flex flex-col gap-1 border-l border-border pl-3">
-                                            {visibleChildren.map(child => renderChild(child, isLimited, isOnline, favorites, toggleFavorite, lighthouseInstalled, installLighthouse, lighthouseInstalling, lighthousePct))}
+                                            {visibleChildren.map(child => renderChild(child, isLimited, isOnline, favorites, toggleFavorite))}
                                         </div>
                                     )}
                                 </div>

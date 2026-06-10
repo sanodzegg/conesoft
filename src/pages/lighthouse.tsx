@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import {
-  Gauge, Download, Loader2, AlertCircle, WifiOff, RotateCcw, Globe,
+  Gauge, Loader2, AlertCircle, WifiOff, RotateCcw, Globe,
   Check, Monitor, Smartphone, ChevronDown, Copy, FileJson, Clock,
   TrendingUp, ShieldCheck, Search, Zap, ExternalLink, Info
 } from 'lucide-react'
@@ -341,30 +341,6 @@ function AuditSummaryBar({ issues }: { issues: Issue[] }) {
   )
 }
 
-// ─── Download circle ──────────────────────────────────────────────────────────
-
-function DownloadCircle({ pct }: { pct: number }) {
-  const r = 22
-  const circ = 2 * Math.PI * r
-  const offset = circ - (pct / 100) * circ
-  const done = pct >= 100
-
-  return (
-    <div className="relative size-14">
-      <svg className="size-14 -rotate-90" viewBox="0 0 56 56">
-        <circle cx="28" cy="28" r={r} fill="none" stroke="currentColor" strokeWidth="4" className="text-border" />
-        <circle cx="28" cy="28" r={r} fill="none" strokeWidth="4"
-          strokeDasharray={circ} strokeDashoffset={offset}
-          strokeLinecap="round" className="stroke-primary transition-all duration-300"
-        />
-      </svg>
-      <span className="absolute inset-0 flex items-center justify-center">
-        {done ? <Check className="size-5 text-primary" /> : <Download className="size-4 text-primary" />}
-      </span>
-    </div>
-  )
-}
-
 // ─── Result view ──────────────────────────────────────────────────────────────
 
 function AuditResultView({ result, onRetry, url }: { result: AuditResult; onRetry: () => void; url: string }) {
@@ -587,9 +563,6 @@ function RunningState({ runningDesktop, runningMobile }: { runningDesktop: boole
 
 export default function Lighthouse() {
   const [status, setStatus] = useState<LighthouseStatus | null>(null)
-  const [installing, setInstalling] = useState(false)
-  const [installPct, setInstallPct] = useState(0)
-  const [installError, setInstallError] = useState<string | null>(null)
   const [url, setUrl] = useState('')
   const [view, setView] = useState<'desktop' | 'mobile' | 'compare'>('desktop')
   const [running, setRunning] = useState(false)
@@ -598,51 +571,10 @@ export default function Lighthouse() {
   const [results, setResults] = useState<Results>({ desktop: null, mobile: null })
   const [isOnline, setIsOnline] = useState(navigator.onLine)
   const [showHistory, setShowHistory] = useState(false)
-  const [latestVersion, setLatestVersion] = useState<string | null>(null)
   const inputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
-    window.electron.lighthouseStatus().then(s => {
-      setStatus(s)
-      if (s.installed && s.version) {
-        const CACHE_KEY = 'conesoft_lighthouse_update_cache'
-        const TTL = 24 * 60 * 60 * 1000
-        try {
-          const cached = JSON.parse(localStorage.getItem(CACHE_KEY) ?? '{}')
-          if (cached.latestVersion && Date.now() - (cached.ts ?? 0) < TTL) {
-            if (cached.latestVersion !== s.version) setLatestVersion(cached.latestVersion)
-            return
-          }
-        } catch {}
-        window.electron.lighthouseCheckUpdate().then(({ latestVersion: lv }) => {
-          if (lv) {
-            localStorage.setItem(CACHE_KEY, JSON.stringify({ latestVersion: lv, ts: Date.now() }))
-            if (lv !== s.version) setLatestVersion(lv)
-          }
-        })
-      }
-    })
-    const unsub = window.electron.onLighthouseInstallProgress((data) => {
-      if (data.status === 'progress') {
-        setInstallPct(data.pct ?? 0)
-      } else if (data.status === 'done') {
-        setInstallPct(100)
-        if (data.version) {
-          localStorage.setItem('conesoft_lighthouse_update_cache', JSON.stringify({ latestVersion: data.version, ts: Date.now() }))
-        }
-        setTimeout(() => {
-          setInstalling(false)
-          setInstallPct(0)
-          setLatestVersion(null)
-          setStatus({ installed: true, version: data.version ?? null })
-        }, 600)
-      } else if (data.status === 'error') {
-        setInstalling(false)
-        setInstallPct(0)
-        setInstallError(data.error ?? 'Installation failed')
-      }
-    })
-    return unsub
+    window.electron.lighthouseStatus().then(setStatus)
   }, [])
 
   useEffect(() => {
@@ -652,13 +584,6 @@ export default function Lighthouse() {
     window.addEventListener('offline', off)
     return () => { window.removeEventListener('online', on); window.removeEventListener('offline', off) }
   }, [])
-
-  function install() {
-    setInstalling(true)
-    setInstallPct(0)
-    setInstallError(null)
-    window.electron.lighthouseInstall()
-  }
 
   async function runAudit(targetUrl?: string) {
     const target = targetUrl ?? url
@@ -707,87 +632,11 @@ export default function Lighthouse() {
     )
   }
 
-  // ── Not installed ──
-  if (status && !status.installed) {
-    return (
-      <section className="section py-8">
-        <PageHeader version={null} />
-        <div className="rounded-xl border border-border bg-card p-10 flex flex-col items-center justify-center gap-4 text-center">
-          <div className="size-16 rounded-full bg-muted flex items-center justify-center">
-            <Gauge className="size-8 text-muted-foreground" />
-          </div>
-          <div>
-            <p className="font-semibold text-foreground text-lg">Download Lighthouse CLI</p>
-            <p className="text-sm text-muted-foreground mt-1.5 max-w-sm">
-              Lighthouse runs audits locally on your machine — no data is sent to any server. Requires a one-time ~70MB download.
-            </p>
-          </div>
-          <div className="flex items-center gap-4 text-xs text-muted-foreground">
-            <span className="flex items-center gap-1.5"><ShieldCheck className="size-3.5 text-green-500" /> Fully local</span>
-            <span className="flex items-center gap-1.5"><Zap className="size-3.5 text-yellow-500" /> No rate limits</span>
-            <span className="flex items-center gap-1.5"><Globe className="size-3.5 text-blue-500" /> Any public URL</span>
-          </div>
-          {installError && (
-            <div className="flex items-center gap-2 text-destructive text-sm">
-              <AlertCircle className="size-4 shrink-0" />
-              {installError}
-            </div>
-          )}
-          {installing ? (
-            <div className="flex flex-col items-center gap-3">
-              <DownloadCircle pct={installPct} />
-              <p className="text-xs text-muted-foreground">Downloading Lighthouse… {installPct}%</p>
-            </div>
-          ) : (
-            <Button onClick={install} className="gap-2 cursor-pointer">
-              <Download className="size-4" />
-              Download Lighthouse
-            </Button>
-          )}
-        </div>
-      </section>
-    )
-  }
-
   const hasResults = results.desktop !== null || results.mobile !== null
 
   return (
     <section className="section py-8">
       <PageHeader version={status?.version} />
-
-      {/* Update banner */}
-      {(latestVersion || (installing && status?.installed)) && (
-        <div className="flex items-center gap-3 rounded-lg border border-yellow-500/30 bg-yellow-500/8 px-4 py-2.5 mb-4">
-          {installing ? (
-            <Loader2 className="size-4 text-yellow-500 shrink-0 animate-spin" />
-          ) : (
-            <TrendingUp className="size-4 text-yellow-500 shrink-0" />
-          )}
-          <div className="flex-1 flex flex-col gap-1.5">
-            {installing ? (
-              <>
-                <p className="text-sm text-foreground">Updating Lighthouse… {installPct}%</p>
-                <div className="h-1 rounded-full bg-yellow-500/20 overflow-hidden">
-                  <div className="h-full rounded-full bg-yellow-500 transition-all duration-300" style={{ width: `${installPct}%` }} />
-                </div>
-              </>
-            ) : (
-              <p className="text-sm text-foreground">
-                Lighthouse <span className="font-medium text-yellow-500">{latestVersion}</span> is available
-                <span className="text-muted-foreground ml-1.5">(installed: {status?.version})</span>
-              </p>
-            )}
-          </div>
-          {!installing && (
-            <button
-              onClick={() => { localStorage.removeItem('conesoft_lighthouse_update_cache'); install() }}
-              className="text-xs font-medium text-yellow-500 hover:text-yellow-400 cursor-pointer transition-colors shrink-0"
-            >
-              Update now
-            </button>
-          )}
-        </div>
-      )}
 
       {/* URL input */}
       <div className="flex gap-3 mb-2">

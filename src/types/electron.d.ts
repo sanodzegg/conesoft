@@ -118,10 +118,8 @@ declare interface Window {
     openExternal: (url: string) => Promise<void>
     onOAuthCallback: (cb: (url: string) => void) => () => void
 
-    // Lighthouse
+    // Lighthouse (bundled — no install step)
     lighthouseStatus: () => Promise<{ installed: boolean; version: string | null }>
-    lighthouseCheckUpdate: () => Promise<{ latestVersion: string | null }>
-    lighthouseInstall: () => Promise<{ success: boolean; version?: string; error?: string }>
     lighthouseRun: (opts: { url: string; strategy?: 'desktop' | 'mobile' }) => Promise<{
       success: boolean
       error?: string
@@ -136,6 +134,5 @@ declare interface Window {
         items: Record<string, string>[]
       }[]
     }>
-    onLighthouseInstallProgress: (cb: (data: { status: 'progress' | 'done' | 'error'; pct?: number; version?: string; error?: string }) => void) => () => void
   }
 }

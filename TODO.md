@@ -70,17 +70,18 @@ Note: bulk conversion happens in the main process (`electron/bulk-convert.js`) w
 limit awareness, so enforcing limits there means checking/reserving in the renderer
 before invoking, or returning counts from the handler to reserve after.
 
-### 2. Lighthouse installs `lighthouse` via npm at runtime
-`electron/lighthouse.js` runs `npm install lighthouse@latest` into userData on first use.
-End users (designers/creators) usually don't have Node/npm on PATH, so the feature fails
-for them. (Audit already fixed the Windows `spawn` crash + the missing-npm hang, but the
-fundamental design remains.)
-**Options:**
-- (a) Bundle `lighthouse` as a real dependency and run it via its Node API against the
-  bundled Chromium (no npm needed). Preferred but adds significant size.
-- (b) Keep on-demand install but ship a bundled Node/npm, or detect-and-disable the
-  feature with a clear message when npm is absent.
-- (c) Drop the feature for v1 if it can't be made reliable in time.
+### 2. ✅ Lighthouse npm-install design — REPLACED with bundled engine (2026-06-11)
+The packaged Mac app crashed with `spawn npm ENOENT` (GUI apps don't get the shell PATH).
+Implemented option (a): `lighthouse` + `chrome-launcher` are now real dependencies;
+`electron/lighthouse-worker.js` runs each audit in a **utilityProcess** (keeps the main
+process responsive, desktop+mobile stay parallel) against the bundled Playwright Chromium.
+Removed: runtime npm install, registry update check, all install UI (lighthouse page +
+sidebar `requiresDownload` flow), `lighthouse-install`/`lighthouse-check-update` IPC.
+Lighthouse now updates with app releases (bump the dep when cutting a release).
+Old userData `lighthouse-cli` dir is cleaned up on startup.
+Smoke-tested in dev (real audit through chrome-launcher + Playwright Chromium). ⚠️ Verify
+in a packaged build (see #3) — relies on Electron's ESM-in-asar support for the dynamic
+`import('lighthouse')` inside the utility process.
 
 ### 3. Verify Playwright Chromium bundling on a clean machine
 Audit wired bundling (`extraResources: ms-playwright`, `scripts/install-browser.mjs`,
@@ -88,7 +89,9 @@ runtime `PLAYWRIGHT_BROWSERS_PATH`). **Not yet verified with a real packaged bui
 - Run `pnpm package:mac` / `pnpm package:win`.
 - Install on a machine with **no** `~/Library/Caches/ms-playwright` (or Windows equiv).
 - Confirm Website PDF, Website Screenshot, and Lighthouse all launch the bundled browser.
-- Confirm installer size increase (~150 MB) is acceptable.
+- Lighthouse specifically: confirms the utilityProcess can ESM-import `lighthouse` from
+  inside the asar (Electron supports ESM-in-asar; this is the packaged proof).
+- Confirm installer size increase (~150 MB Chromium + ~30 MB lighthouse) is acceptable.
 
 ### 4. Verify PDF editor rendering at runtime
 `pdfjs-dist` v5 changed `page.render()` to require a `canvas` field (audit added it in
@@ -114,6 +117,20 @@ at period end — verify the user keeps Pro access until then and isn't downgrad
 `electron/bulk-convert.js` can't decode HEIC/HEIF (it calls Sharp directly, no
 `heic-convert` path) even though the homepage engine can. Either add the heic-convert
 path to bulk or document the gap. (`.bmp` already removed; `.jfif` added.)
+
+### 8. Distribution: Microsoft Store first, signed macOS later
+Decided 2026-06-11. (Pricing note: staying at $8/mo / $110 lifetime for now — a sale is
+planned instead of a price change.)
+- **Windows / Microsoft Store** (current focus): needs an `appx` target + Partner Center
+  identity values ($19 one-time individual account). **appx can only be built on Windows**
+  — use a Windows machine/VM or GitHub Actions windows runner. The Store signs packages
+  (no cert purchase, no SmartScreen) and **handles auto-updates itself** — no
+  electron-updater for this channel. electron-builder appx runs full-trust, so
+  Sharp/FFmpeg/Chromium/fs.watch behave like normal Win32.
+- **macOS** (later): Apple Developer ($99/yr) + Developer ID signing + notarization —
+  required for Gatekeeper-clean distribution AND for auto-update (Squirrel.Mac rejects
+  unsigned updates). Once signed, add `electron-updater` (~30 lines + static file hosting;
+  zip target already exists) for the direct-download channel.
 
 ---
 

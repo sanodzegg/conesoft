@@ -53,7 +53,9 @@ electron/
   pdf-editor.js        — PDF page ops, watermark, form fill, burn annotations
   website-pdf.js       — Playwright website→PDF (shares browser w/ screenshot)
   screenshot.js        — Playwright screenshot + owns the shared browser instance
-  lighthouse.js        — Lighthouse runner (installs lighthouse on demand via npm)
+  lighthouse.js        — Lighthouse runner (bundled dep; forks lighthouse-worker.js)
+  lighthouse-worker.js — runs one audit in a utilityProcess (lighthouse Node API +
+                         chrome-launcher against the bundled Playwright Chromium)
   batch-rename.js      — folder scan + rename rules
   file-save.js         — pick folder / save buffer to disk (auto-download)
 
@@ -212,8 +214,9 @@ dropbox. (`spendTokens` is the single entry point, so wiring the others in later
   annotations (highlight/draw/arrow/text). Renders via `pdfjs-dist`.
 - **Website PDF** / **Website Screenshot** — Playwright; share one browser instance;
   block trackers, scroll to trigger lazy media, replace videos, strip fixed/chat widgets.
-- **Lighthouse** — performance/a11y/best-practices/SEO audit. ⚠️ installs `lighthouse`
-  on demand via `npm` into userData (see `TODO.md`).
+- **Lighthouse** — performance/a11y/best-practices/SEO audit, desktop+mobile in parallel.
+  `lighthouse` is a bundled dependency run via its Node API in a utilityProcess against
+  the bundled Chromium (no runtime install; updates ship with app releases).
 - **Batch rename** — find/replace, prefix/suffix, case, sequential numbering, dedupe preview.
 - **Settings** — image-quality default, per-engine default formats, default output
   folder; synced to Supabase when signed in (conflict dialog on divergence).
