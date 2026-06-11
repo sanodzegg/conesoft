@@ -47,6 +47,9 @@ importers:
       clsx:
         specifier: ^2.1.1
         version: 2.1.1
+      core-util-is:
+        specifier: 1.0.2
+        version: 1.0.2
       docx:
         specifier: ^9.6.1
         version: 9.6.1
@@ -59,6 +62,12 @@ importers:
       heic-convert:
         specifier: ^2.1.0
         version: 2.1.0
+      immediate:
+        specifier: 3.0.6
+        version: 3.0.6
+      isarray:
+        specifier: 1.0.0
+        version: 1.0.0
       jszip:
         specifier: ^3.10.1
         version: 3.10.1
@@ -98,6 +107,9 @@ importers:
       playwright-core:
         specifier: ^1.58.2
         version: 1.58.2
+      process-nextick-args:
+        specifier: 2.0.1
+        version: 2.0.1
       react:
         specifier: ^19.2.4
         version: 19.2.4
@@ -113,6 +125,9 @@ importers:
       readable-stream:
         specifier: ^4.7.0
         version: 4.7.0
+      safe-buffer:
+        specifier: 5.1.2
+        version: 5.1.2
       setimmediate:
         specifier: ^1.0.5
         version: 1.0.5

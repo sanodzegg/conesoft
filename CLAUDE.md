@@ -254,8 +254,21 @@ dropbox. (`spendTokens` is the single entry point, so wiring the others in later
 
 ## Packaging (electron-builder)
 
-- `asar: true`; `asarUnpack` for sharp, `@img`, `detect-libc`, ffmpeg-static,
-  heic-convert, libheif-js (native/binary deps must run from disk).
+- `asar: true`; `asarUnpack` for sharp, `@img`, `detect-libc`, **semver**, ffmpeg-static,
+  heic-convert, **heic-decode**, **jpeg-js**, **pngjs**, libheif-js (native/binary deps must
+  run from disk). ⚠️ An **unpacked** module can't resolve a dependency that stays **packed**
+  in the asar (Node walks the real `app.asar.unpacked` dir and never re-enters `app.asar`).
+  So every runtime dep of an unpacked package must itself be unpacked: `semver` is sharp's
+  (its `libvips.js` does `require('semver/functions/coerce')` at load — drop it and the app
+  **won't launch**); `heic-decode`/`jpeg-js`/`pngjs` are heic-convert's.
+- ⚠️ **Phantom deps in `package.json`** (`core-util-is`, `immediate`, `isarray`, `lie`,
+  `pako`, `process-nextick-args`, `readable-stream`, `safe-buffer`, `setimmediate`) are
+  **not used directly** — they're transitive deps of `jszip` (via `mammoth` → docx reading in
+  the main process). electron-builder's pnpm collector reliably packs **direct** deps but
+  **drops some nested transitive ones**, so they're declared direct to force inclusion.
+  Versions are pinned to what the nested consumers need (e.g. `readable-stream@2`'s tree).
+  **Do not "clean up" these as unused** — removing them breaks packaged builds. After any
+  dependency change, re-verify the main-process require closure is fully present in the asar.
 - **Chromium is bundled** via `extraResources: ms-playwright` + `scripts/install-browser.mjs`
   (run by `package*`). At runtime, packaged mode sets
   `PLAYWRIGHT_BROWSERS_PATH = resources/ms-playwright` **before** requiring
