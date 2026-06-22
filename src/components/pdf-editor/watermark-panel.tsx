@@ -5,6 +5,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Slider } from '@/components/ui/slider'
 import { cn } from '@/lib/utils'
+import { usePdfSaveMeter } from '@/lib/usePdfSaveMeter'
 import type { PdfFile } from '@/pages/pdf-editor'
 
 type WatermarkType = 'text' | 'image'
@@ -25,6 +26,7 @@ export default function WatermarkPanel({ file }: { file: PdfFile }) {
   const [applying, setApplying] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [done, setDone] = useState(false)
+  const { reserveEditorSave, markEditorSaved, onSaved } = usePdfSaveMeter()
 
   function parsePages(): 'all' | number[] {
     if (pages === 'all' || pages.trim() === '') return 'all'
@@ -47,6 +49,9 @@ export default function WatermarkPanel({ file }: { file: PdfFile }) {
   }
 
   async function apply() {
+    // Reserve up front: 5 for the first save of this document, 2 for a re-save.
+    const refund = reserveEditorSave()
+    if (!refund) return
     setApplying(true)
     setError(null)
     setDone(false)
@@ -60,6 +65,7 @@ export default function WatermarkPanel({ file }: { file: PdfFile }) {
 
     const result = await window.electron.pdfEditorWatermark({ filePath: file.path, watermark })
     if (!result.success) {
+      refund()
       setError(result.error ?? 'Failed to apply watermark')
       setApplying(false)
       return
@@ -67,7 +73,8 @@ export default function WatermarkPanel({ file }: { file: PdfFile }) {
 
     const saved = await window.electron.pdfEditorSave()
     setApplying(false)
-    if (!saved.canceled) setDone(true)
+    if (!saved.canceled) { onSaved(); markEditorSaved(); setDone(true) }
+    else refund()
   }
 
   return (

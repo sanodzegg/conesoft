@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { cn } from '@/lib/utils'
+import { usePdfSaveMeter } from '@/lib/usePdfSaveMeter'
 
 type Status = 'idle' | 'merging' | 'done' | 'error'
 
@@ -28,6 +29,10 @@ export default function PdfMerge() {
   const [error, setError] = useState<string | null>(null)
   const [draggingId, setDraggingId] = useState<string | null>(null)
   const [dragOverId, setDragOverId] = useState<string | null>(null)
+  // dirty = a freshly merged buffer not yet saved. First save after a merge costs 5 (new
+  // document); saving the same buffer again ("Save again") costs 2 (clean re-save).
+  const [dirty, setDirty] = useState(false)
+  const { reserve, onSaved } = usePdfSaveMeter()
 
   const addFiles = async () => {
     const res = await window.electron.pdfPickFiles()
@@ -70,6 +75,7 @@ export default function PdfMerge() {
     try {
       await window.electron.pdfMerge({ filePaths: files.map(f => f.path) })
       setMerged(true)
+      setDirty(true)
       setStatus('done')
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : String(err))
@@ -78,8 +84,14 @@ export default function PdfMerge() {
   }
 
   const save = async () => {
+    // 5 tokens for the first save of a freshly merged doc, 2 for a clean re-save.
+    const refund = reserve(dirty ? 5 : 2)
+    if (!refund) return
     const res = await window.electron.pdfMergeSave()
-    if (!res.canceled && res.filePath) setSavedPath(res.filePath)
+    if (res.canceled || !res.filePath) { refund(); return }
+    setSavedPath(res.filePath)
+    setDirty(false)
+    onSaved()
   }
 
   const reset = () => {
@@ -88,6 +100,7 @@ export default function PdfMerge() {
     setSavedPath(null)
     setError(null)
     setStatus('idle')
+    setDirty(false)
   }
 
   const isMerging = status === 'merging'

@@ -183,12 +183,24 @@ reverses the exact split. Reservation is a synchronous localStorage RMW, so imag
   can be re-inflated on next sign-in (accepted - see `TODO.md`).
 
 ### ⚠️ Where metering is wired (and where it ISN'T)
-Tokens are spent via `spendTokens` (reserve up front, `refund()` on failure) in **three**
-places: `conversionService.convertFile` (homepage), `favicons.tsx` `handleFile`, and
-`image-compression.tsx` `download` (only the actual download - the live preview re-encodes
-freely). Each also gates its entry UI with `isAtLimit('image', plan)` (dropzone / Download
-button → "Upgrade to Pro"). The shared `onConversionSuccess` in `main.tsx` only triggers
-server sync + the exhaustion flip - **it does not spend.**
+Tokens are spent via `spendTokens` (reserve up front, `refund()` on failure) in these places:
+- `conversionService.convertFile` (homepage) - per-engine cost.
+- `favicons.tsx` `handleFile` and `image-compression.tsx` `download` - **image** (1); compression
+  meters only the actual download (the live preview re-encodes freely). Both gate entry UI with
+  `isAtLimit('image', plan)` → "Upgrade to Pro".
+- **PDF editor + merge saves** - **document**, via the `usePdfSaveMeter` hook. `spendTokens` takes
+  an optional `costOverride`: **first save of a document = 5**, **every later save of the same
+  document = 2**. *Editor:* the hook keeps a module-level `editorSavedOnce` flag - the first save
+  of an opened file is 5, all subsequent saves are 2 regardless of how much was edited between
+  them (`reserveEditorSave()` / `markEditorSaved()`); `resetEditorSaveSession()` fires when a new
+  file is opened/closed (`pdf-editor.tsx`), so the singleton is safe (editor is single-file).
+  *Merge:* a fresh merge is dirty → first save 5; "Save again" is 2; a re-merge resets to dirty.
+  Reserve happens *before* the edit op so an out-of-budget user is blocked before any work; refund
+  on op failure or a canceled save dialog. PDF routes stay open to all plans (not gated) - they're
+  metered, so a limited user spends daily tokens, trial spends trial tokens, paid is ungated.
+
+The shared `onConversionSuccess` in `main.tsx` only triggers server sync + the exhaustion flip -
+**it does not spend.**
 
 → The **bulk converter + watch mode** are **not metered** because they're **Pro-only** (decided
 2026-06-12) - per-file metering of an unbounded folder against a 100-token trial was a poor fit

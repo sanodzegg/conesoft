@@ -6,6 +6,7 @@ import type { PDFDocumentProxy, PDFPageProxy } from 'pdfjs-dist'
 import type { PdfFile } from '@/pages/pdf-editor'
 import AnnotationToolbar, { type AnnotationTool } from './annotation-toolbar'
 import AnnotationCanvas, { type Annotation, type AnnotationCanvasHandle } from './annotation-canvas'
+import { usePdfSaveMeter } from '@/lib/usePdfSaveMeter'
 
 // ─── Per-page rendered state ──────────────────────────────────────────────────
 
@@ -96,6 +97,7 @@ export default function AnnotationEditor({ file }: { file: PdfFile }) {
   const [saving, setSaving] = useState(false)
   const [saveError, setSaveError] = useState<string | null>(null)
   const [done, setDone] = useState(false)
+  const { reserveEditorSave, markEditorSaved, onSaved } = usePdfSaveMeter()
 
   const [tool, setTool] = useState<AnnotationTool>('highlight')
   const [color, setColor] = useState('#FFFF00')
@@ -183,6 +185,9 @@ export default function AnnotationEditor({ file }: { file: PdfFile }) {
   const totalAnnotations = pages.reduce((s, p) => s + p.annotations.length, 0)
 
   async function save() {
+    // Reserve up front: 5 for the first save of this document, 2 for a re-save.
+    const refund = reserveEditorSave()
+    if (!refund) return
     setSaving(true)
     setSaveError(null)
     setDone(false)
@@ -200,6 +205,7 @@ export default function AnnotationEditor({ file }: { file: PdfFile }) {
     })
 
     if (!result.success) {
+      refund()
       setSaveError(result.error ?? 'Failed to burn annotations')
       setSaving(false)
       return
@@ -207,7 +213,8 @@ export default function AnnotationEditor({ file }: { file: PdfFile }) {
 
     const saved = await window.electron.pdfEditorSave()
     setSaving(false)
-    if (!saved.canceled) setDone(true)
+    if (!saved.canceled) { onSaved(); markEditorSaved(); setDone(true) }
+    else refund()
   }
 
   if (loading) {

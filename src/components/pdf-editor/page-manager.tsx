@@ -3,6 +3,7 @@ import { RotateCcw, RotateCw, Trash2, Copy, Save, Loader2, GripVertical, AlertCi
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import { pdfjsLib } from '@/lib/pdf-worker'
+import { usePdfSaveMeter } from '@/lib/usePdfSaveMeter'
 import type { PdfFile } from '@/pages/pdf-editor'
 import type { PDFDocumentProxy } from 'pdfjs-dist'
 
@@ -143,6 +144,7 @@ export default function PageManager({ file }: { file: PdfFile }) {
   const [saving, setSaving] = useState(false)
   const [saveError, setSaveError] = useState<string | null>(null)
   const [dirty, setDirty] = useState(false)
+  const { reserveEditorSave, markEditorSaved, onSaved } = usePdfSaveMeter()
 
   const docRef = useRef<PDFDocumentProxy | null>(null)
 
@@ -274,18 +276,23 @@ export default function PageManager({ file }: { file: PdfFile }) {
   // ── Save ─────────────────────────────────────────────────────────────────────
 
   async function save() {
+    // Reserve up front: 5 for the first save of this document, 2 for a re-save.
+    const refund = reserveEditorSave()
+    if (!refund) return
     setSaving(true)
     setSaveError(null)
     const ops = pages.map(p => ({ srcIndex: p.srcIndex, rotation: p.rotation }))
     const result = await window.electron.pdfEditorPageOps({ filePath: file.path, ops })
     if (!result.success) {
+      refund()
       setSaveError(result.error ?? 'Failed to apply changes')
       setSaving(false)
       return
     }
     const saved = await window.electron.pdfEditorSave()
     setSaving(false)
-    if (!saved.canceled) setDirty(false)
+    if (!saved.canceled) { onSaved(); markEditorSaved(); setDirty(false) }
+    else refund()
   }
 
   // ── Render ───────────────────────────────────────────────────────────────────

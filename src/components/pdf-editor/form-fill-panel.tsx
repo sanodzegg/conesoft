@@ -5,6 +5,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Checkbox } from '@/components/ui/checkbox'
 import { cn } from '@/lib/utils'
+import { usePdfSaveMeter } from '@/lib/usePdfSaveMeter'
 import type { PdfFile } from '@/pages/pdf-editor'
 
 type FormField = { name: string; type: string; value: string | null }
@@ -17,6 +18,7 @@ export default function FormFillPanel({ file }: { file: PdfFile }) {
   const [saving, setSaving] = useState(false)
   const [saveError, setSaveError] = useState<string | null>(null)
   const [done, setDone] = useState(false)
+  const { reserveEditorSave, markEditorSaved, onSaved } = usePdfSaveMeter()
 
   useEffect(() => {
     setLoading(true)
@@ -37,6 +39,9 @@ export default function FormFillPanel({ file }: { file: PdfFile }) {
   }
 
   async function save() {
+    // Reserve up front: 5 for the first save of this document, 2 for a re-save.
+    const refund = reserveEditorSave()
+    if (!refund) return
     setSaving(true)
     setSaveError(null)
     setDone(false)
@@ -44,6 +49,7 @@ export default function FormFillPanel({ file }: { file: PdfFile }) {
     const fieldPayload = fields.map(f => ({ name: f.name, type: f.type, value: values[f.name] ?? '' }))
     const result = await window.electron.pdfEditorFillForms({ filePath: file.path, fields: fieldPayload })
     if (!result.success) {
+      refund()
       setSaveError(result.error ?? 'Failed to fill form')
       setSaving(false)
       return
@@ -51,7 +57,8 @@ export default function FormFillPanel({ file }: { file: PdfFile }) {
 
     const saved = await window.electron.pdfEditorSave()
     setSaving(false)
-    if (!saved.canceled) setDone(true)
+    if (!saved.canceled) { onSaved(); markEditorSaved(); setDone(true) }
+    else refund()
   }
 
   if (loading) {

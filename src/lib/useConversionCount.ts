@@ -179,8 +179,8 @@ function isSelfEcho(updatedAt: string | undefined): boolean {
 // record every conversion regardless. Synchronous localStorage RMW → parallel-safe. Returns
 // [refund, reserved]; reserved=false means the combined free budget can't cover it. Paid plans
 // are ungated. Call refund() if the conversion later fails - it reverses the exact split taken.
-export function spendTokens(engine: EngineType, plan: string): [() => void, boolean] {
-    const cost = TOKEN_COSTS[engine]
+export function spendTokens(engine: EngineType, plan: string, costOverride?: number): [() => void, boolean] {
+    const cost = costOverride ?? TOKEN_COSTS[engine]
 
     // Paid plans: ungated - just record the per-category analytics count.
     if (plan !== 'trial' && plan !== 'limited') {

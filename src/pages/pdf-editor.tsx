@@ -2,6 +2,7 @@ import { useState, useCallback } from 'react'
 import { FileText, Layers, Stamp, FormInput, Upload, X, FileEdit } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
+import { resetEditorSaveSession } from '@/lib/usePdfSaveMeter'
 import { lazy, Suspense } from 'react'
 import { Loader2 } from 'lucide-react'
 
@@ -80,12 +81,14 @@ export default function PdfEditor() {
 
   const handleFile = useCallback((f: PdfFile) => {
     window.electron.pdfEditorReset()
+    resetEditorSaveSession() // new document - next save bills as the first (5), then re-saves (2)
     setFile(f)
     setTab('pages')
   }, [])
 
   function closeFile() {
     window.electron.pdfEditorReset()
+    resetEditorSaveSession()
     setFile(null)
   }
 
