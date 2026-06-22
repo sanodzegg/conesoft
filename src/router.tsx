@@ -47,7 +47,7 @@ export default function Router() {
           <Route path="/extensions/pdf-merge" element={<PdfMerge />} />
           <Route path="/extensions/image-editor" element={<ProRoute><ImageEditor /></ProRoute>} />
           <Route path="/extensions/bulk-converter" element={<PaidRoute><BulkConverter /></PaidRoute>} />
-          <Route path="/extensions/batch-rename" element={<BatchRename />} />
+          <Route path="/extensions/batch-rename" element={<PaidRoute><BatchRename /></PaidRoute>} />
           <Route path="/extensions/palette-extractor" element={<ProRoute><PaletteExtractor /></ProRoute>} />
           <Route path="/extensions/image-compression" element={<ProRoute><ImageCompression /></ProRoute>} />
           <Route path="/extensions/website-screenshot" element={<ProRoute><WebsiteScreenshot /></ProRoute>} />

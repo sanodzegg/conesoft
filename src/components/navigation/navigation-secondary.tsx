@@ -147,6 +147,7 @@ const extensions: Extension[] = [
                 description: 'Rename files with patterns, prefixes, and sequences',
                 href: '/extensions/batch-rename',
                 icon: <TextCursorInput className="size-5" />,
+                paidOnly: true,
             },
         ],
     },

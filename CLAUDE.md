@@ -218,10 +218,11 @@ Tokens are spent via `spendTokens` (reserve up front, `refund()` on failure) in 
 The shared `onConversionSuccess` in `main.tsx` only triggers server sync + the exhaustion flip -
 **it does not spend.**
 
-→ The **bulk converter + watch mode** are **not metered** because they're **Pro-only** (decided
-2026-06-12) - per-file metering of an unbounded folder against a 100-token trial was a poor fit
-(a 50-image folder = 50 tokens), and paid plans are ungated anyway. It's gated, not metered, via
-the **existing nav-lock pattern**: the nav item carries `paidOnly` (stricter sibling of `proOnly`)
+→ The **bulk converter + watch mode** and **batch rename** are **not metered** because they're
+**Pro-only** (the whole "Batch Operations" nav group). Their work is unbounded per run and not
+reliably trackable (a folder of N files = N operations), a poor fit for a 100-token trial, and
+paid plans are ungated anyway. They're gated, not metered, via the **existing nav-lock pattern**:
+the nav item carries `paidOnly` (stricter sibling of `proOnly`)
 and renders locked (Lock icon, not clickable) for any non-paid plan; the route is guarded by
 `PaidRoute` (`router.tsx`) which redirects non-paid plans to `/pricing`. `isChildLocked` in
 `navigation-secondary.tsx` is the shared lock predicate: `(isLimited && proOnly) || (!isPaid &&
@@ -254,7 +255,8 @@ single source of truth for "paid". See `TODO.md` #1.
 - **Lighthouse** - performance/a11y/best-practices/SEO audit, desktop+mobile in parallel.
   `lighthouse` is a bundled dependency run via its Node API in a utilityProcess against
   the bundled Chromium (no runtime install; updates ship with app releases).
-- **Batch rename** - find/replace, prefix/suffix, case, sequential numbering, dedupe preview.
+- **Batch rename** (**Pro-only** - `paidOnly` nav lock + `PaidRoute`) - find/replace,
+  prefix/suffix, case, sequential numbering, dedupe preview.
 - **Settings** - image-quality default, per-engine default formats, default output
   folder; synced to Supabase when signed in (conflict dialog on divergence).
 - **Pricing / Account** - Paddle checkout, plan + renewal display, cancel flow.
