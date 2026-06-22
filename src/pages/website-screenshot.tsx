@@ -1,10 +1,12 @@
-import { Camera, RotateCcw, Loader2, Globe, Download, AlertCircle, WifiOff } from 'lucide-react'
+import { Camera, RotateCcw, Loader2, Globe, Download, AlertCircle, WifiOff, Info } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { cn } from '@/lib/utils'
 import { useScreenshot } from '@/components/website-screenshot/use-screenshot'
 import { useState, useEffect } from 'react'
+import { useAuth } from '@/lib/useAuth'
+import { isPaidPlan } from '@/store/useAuthStore'
 
 const FORMATS = ['png', 'jpg', 'webp'] as const
 const VIEWPORT_PRESETS = [
@@ -24,6 +26,8 @@ const USER_AGENT_PRESETS = [
 export default function WebsiteScreenshot() {
   const { state, capture, save, setUrl, blurUrl, setFormat, setViewportWidth, setUserAgent, reset } = useScreenshot()
   const [isOnline, setIsOnline] = useState(navigator.onLine)
+  const { plan } = useAuth()
+  const metered = !isPaidPlan(plan)
 
   useEffect(() => {
     const onOnline = () => setIsOnline(true)
@@ -61,19 +65,29 @@ export default function WebsiteScreenshot() {
 
   return (
     <section className="section py-8">
-      <div className="mb-6 flex items-start justify-between">
+      <div className="mb-6 flex items-start justify-between gap-4">
         <div>
           <h2 className="text-2xl font-body font-semibold text-foreground">Website Screenshot</h2>
           <p className="text-sm text-muted-foreground mt-1">
             Capture full-page screenshots of any public URL.
           </p>
         </div>
-        {(isDone || isError) && (
-          <Button variant="outline" size="sm" onClick={reset} className="gap-1.5 shrink-0">
-            <RotateCcw className="size-3.5" />
-            Reset
-          </Button>
-        )}
+        <div className="flex items-start gap-2.5 shrink-0">
+          {(isDone || isError) && (
+            <Button variant="outline" size="sm" onClick={reset} className="gap-1.5 shrink-0">
+              <RotateCcw className="size-3.5" />
+              Reset
+            </Button>
+          )}
+          {metered && (
+            <div className="flex items-start gap-2.5 rounded-xl border border-primary/30 bg-primary/5 px-3.5 py-2.5 max-w-xs">
+              <Info className="size-4 text-primary shrink-0 mt-0.5" />
+              <p className="text-xs text-muted-foreground">
+                First download costs <span className="font-medium text-foreground">3 tokens</span>, then <span className="font-medium text-foreground">2</span> for each one after.
+              </p>
+            </div>
+          )}
+        </div>
       </div>
 
       <div className="flex gap-6">

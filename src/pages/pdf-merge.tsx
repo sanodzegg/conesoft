@@ -130,7 +130,7 @@ export default function PdfMerge() {
             <div className="flex items-start gap-2.5 rounded-xl border border-primary/30 bg-primary/5 px-3.5 py-2.5 max-w-xs">
               <Info className="size-4 text-primary shrink-0 mt-0.5" />
               <p className="text-xs text-muted-foreground">
-                Saving uses <span className="font-medium text-foreground">5 tokens</span> for a new merge, then <span className="font-medium text-foreground">2</span> for each re-save.
+                First save costs <span className="font-medium text-foreground">5 tokens</span>, then <span className="font-medium text-foreground">2</span> for each one after.
               </p>
             </div>
           )}

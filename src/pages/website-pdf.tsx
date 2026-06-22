@@ -1,10 +1,15 @@
 import { useState, useEffect } from 'react'
-import { FileDown, RotateCcw, Loader2, Globe, Download, AlertCircle, WifiOff, CircleAlert } from 'lucide-react'
+import { FileDown, RotateCcw, Loader2, Globe, Download, AlertCircle, WifiOff, CircleAlert, Info } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { cn } from '@/lib/utils'
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
+import { useAuth } from '@/lib/useAuth'
+import { isPaidPlan } from '@/store/useAuthStore'
+import { spendTokens } from '@/lib/useConversionCount'
+import { useConversionCountContext } from '@/lib/ConversionCountContext'
+import { toast } from 'sonner'
 
 type Status = 'idle' | 'generating' | 'done' | 'error' | 'timeout'
 
@@ -39,8 +44,15 @@ export default function WebsitePdf() {
   const [error, setError] = useState<string | null>(null)
   const [ready, setReady] = useState(false)
   const [savedPath, setSavedPath] = useState<string | null>(null)
+  // Session flag: first download of a page visit costs full price, every later download (even
+  // after re-generating with tweaked settings) is a re-save. Reset on Reset / page remount only,
+  // NOT on generate - so changing a property and re-downloading bills as a re-save, not a new doc.
+  const [savedOnce, setSavedOnce] = useState(false)
   const [isOnline, setIsOnline] = useState(navigator.onLine)
   const [countdown, setCountdown] = useState<number | null>(null)
+  const { plan } = useAuth()
+  const { onConversionSuccess } = useConversionCountContext()
+  const metered = !isPaidPlan(plan)
 
   useEffect(() => {
     const on = () => setIsOnline(true)
@@ -97,8 +109,23 @@ export default function WebsitePdf() {
   }
 
   const save = async () => {
+    // Charge on download (generating/preview is free): first download this visit = 5, every
+    // later one = 2 (re-save), even after re-generating with changed settings.
+    // countCategory:false - not a conversion, so it spends tokens without bumping Usage counts.
+    const cost = savedOnce ? 2 : 5
+    const [refund, reserved] = spendTokens('document', plan, { cost, countCategory: false })
+    if (!reserved) {
+      toast.error('PDF limit reached', {
+        description: 'Upgrade to Pro to save more PDFs.',
+        duration: 5000,
+      })
+      return
+    }
     const result = await window.electron.websitePdfSave()
-    if (!result.canceled && result.filePath) setSavedPath(result.filePath)
+    if (result.canceled || !result.filePath) { refund(); return }
+    setSavedPath(result.filePath)
+    setSavedOnce(true)
+    onConversionSuccess('document')
   }
 
   const reset = () => {
@@ -107,6 +134,7 @@ export default function WebsitePdf() {
     setError(null)
     setReady(false)
     setSavedPath(null)
+    setSavedOnce(false)
     setCountdown(null)
   }
 
@@ -134,16 +162,26 @@ export default function WebsitePdf() {
 
   return (
     <section className="section py-8">
-      <div className="mb-6 flex items-start justify-between">
+      <div className="mb-6 flex items-start justify-between gap-4">
         <div>
           <h2 className="text-2xl font-body font-semibold text-foreground">Download as PDF</h2>
           <p className="text-sm text-muted-foreground mt-1">Save any webpage as a PDF.</p>
         </div>
-        {(isDone || isError) && (
-          <Button variant="outline" size="sm" onClick={reset} className="gap-1.5 shrink-0">
-            <RotateCcw className="size-3.5" /> Reset
-          </Button>
-        )}
+        <div className="flex items-start gap-2.5 shrink-0">
+          {(isDone || isError) && (
+            <Button variant="outline" size="sm" onClick={reset} className="gap-1.5 shrink-0">
+              <RotateCcw className="size-3.5" /> Reset
+            </Button>
+          )}
+          {metered && (
+            <div className="flex items-start gap-2.5 rounded-xl border border-primary/30 bg-primary/5 px-3.5 py-2.5 max-w-xs">
+              <Info className="size-4 text-primary shrink-0 mt-0.5" />
+              <p className="text-xs text-muted-foreground">
+                First download costs <span className="font-medium text-foreground">5 tokens</span>, then <span className="font-medium text-foreground">2</span> for each one after.
+              </p>
+            </div>
+          )}
+        </div>
       </div>
 
       <div className="flex gap-6">

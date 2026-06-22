@@ -1,4 +1,8 @@
 import { useState, useEffect } from 'react'
+import { useAuth } from '@/lib/useAuth'
+import { spendTokens } from '@/lib/useConversionCount'
+import { useConversionCountContext } from '@/lib/ConversionCountContext'
+import { toast } from 'sonner'
 
 export type BrowserStatus = 'unknown' | 'downloading' | 'ready' | 'error'
 export type CaptureStatus = 'idle' | 'capturing' | 'done' | 'error' | 'timeout'
@@ -33,6 +37,11 @@ const INITIAL: ScreenshotState = {
 
 export function useScreenshot() {
   const [state, setState] = useState<ScreenshotState>(INITIAL)
+  const { plan } = useAuth()
+  const { onConversionSuccess } = useConversionCountContext()
+  // Session flag: first download of a visit costs full price, every later one is a re-save -
+  // even after re-capturing. Reset only on reset() / remount, not on capture.
+  const [savedOnce, setSavedOnce] = useState(false)
 
   useEffect(() => {
     const unsub = window.electron.onScreenshotBrowserStatus(({ status, error }) => {
@@ -64,14 +73,27 @@ export function useScreenshot() {
 
   const save = async () => {
     if (!state.buffer) return
+    // Charge on download (capture/preview is free): first download this visit = 3, every later
+    // one = 2 (re-save), even after re-capturing.
+    // countCategory:false - not a conversion, so it spends tokens without bumping Usage counts.
+    const cost = savedOnce ? 2 : 3
+    const [refund, reserved] = spendTokens('image', plan, { cost, countCategory: false })
+    if (!reserved) {
+      toast.error('Screenshot limit reached', {
+        description: 'Upgrade to Pro to save more screenshots.',
+        duration: 5000,
+      })
+      return
+    }
     const result = await window.electron.screenshotSave({
       buffer: state.buffer,
       format: state.format,
       url: state.url,
     })
-    if (!result.canceled && result.filePath) {
-      setState(s => ({ ...s, savedPath: result.filePath ?? null }))
-    }
+    if (result.canceled || !result.filePath) { refund(); return }
+    setState(s => ({ ...s, savedPath: result.filePath ?? null }))
+    setSavedOnce(true)
+    onConversionSuccess('image')
   }
 
   const normalizeUrl = (url: string) => {
@@ -86,7 +108,7 @@ export function useScreenshot() {
   const setFormat = (format: ScreenshotState['format']) => setState(s => ({ ...s, format }))
   const setViewportWidth = (viewportWidth: number) => setState(s => ({ ...s, viewportWidth }))
   const setUserAgent = (userAgent: string) => setState(s => ({ ...s, userAgent }))
-  const reset = () => setState(s => ({ ...INITIAL, browserStatus: s.browserStatus }))
+  const reset = () => { setState(s => ({ ...INITIAL, browserStatus: s.browserStatus })); setSavedOnce(false) }
 
   return { state, capture, save, setUrl, blurUrl, setFormat, setViewportWidth, setUserAgent, reset }
 }

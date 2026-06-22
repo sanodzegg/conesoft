@@ -202,6 +202,18 @@ Tokens are spent via `spendTokens` (reserve up front, `refund()` on failure) in 
   op so an out-of-budget user is blocked before any work; refund on op failure or a canceled save
   dialog. PDF routes stay open to all plans (not gated) - they're metered, so a limited user spends
   daily tokens, trial spends trial tokens, paid is ungated.
+- **Web tools** (all `countCategory:false`, so no per-category count - not conversions):
+  - **Screenshot** (`use-screenshot.ts` `save`) and **Website PDF** (`website-pdf.tsx` `save`) charge
+    on **download**, not capture/generate (preview is free), and are **session-priced per page visit**
+    (like merge): screenshot **3 then 2**, PDF **5 then 2**. A local `savedOnce` flag (NOT `savedPath`)
+    drives this - it's reset on Reset / remount only, **not** on re-capture/re-generate, so tweaking a
+    setting and re-downloading bills as a re-save (2), not a fresh artifact. Refund on a canceled save
+    dialog.
+  - **Lighthouse** (`lighthouse.tsx` `runAudit`) charges **5 per audit** on the run itself, because
+    there's no downloadable artifact - the on-screen report *is* the deliverable. One run = the
+    desktop+mobile pair, billed once; refunded if both strategies error.
+  These three are `proOnly` (nav-locked for limited), so in practice only trial users are metered;
+  paid is ungated.
 
 The shared `onConversionSuccess` in `main.tsx` only triggers server sync + the exhaustion flip -
 **it does not spend.**
