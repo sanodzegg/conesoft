@@ -7,6 +7,11 @@ import {
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { cn } from '@/lib/utils'
+import { toast } from 'sonner'
+import { useAuth } from '@/lib/useAuth'
+import { isPaidPlan } from '@/store/useAuthStore'
+import { spendTokens } from '@/lib/useConversionCount'
+import { useConversionCountContext } from '@/lib/ConversionCountContext'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -572,6 +577,9 @@ export default function Lighthouse() {
   const [isOnline, setIsOnline] = useState(navigator.onLine)
   const [showHistory, setShowHistory] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
+  const { plan } = useAuth()
+  const { onConversionSuccess } = useConversionCountContext()
+  const metered = !isPaidPlan(plan)
 
   useEffect(() => {
     window.electron.lighthouseStatus().then(setStatus)
@@ -589,6 +597,19 @@ export default function Lighthouse() {
     const target = targetUrl ?? url
     if (!target.trim()) return
     const normalized = target.startsWith('http') ? target : `https://${target}`
+
+    // Reserve 5 tokens up front; refunded below if the audit returns no results (both errored).
+    // countCategory:false - an audit isn't a conversion, so it spends tokens without bumping the
+    // per-category Usage counts.
+    const [refund, reserved] = spendTokens('document', plan, { cost: 5, countCategory: false })
+    if (!reserved) {
+      toast.error('Audit limit reached', {
+        description: 'Upgrade to Pro to run more audits.',
+        duration: 5000,
+      })
+      return
+    }
+
     setUrl(normalized)
     setRunning(true)
     setRunningDesktop(true)
@@ -604,8 +625,9 @@ export default function Lighthouse() {
     setResults({ desktop, mobile })
     setRunning(false)
 
-    // Save to history
+    // Only a successful audit (at least one strategy returned results) is billed; both errored = refund.
     if (desktop?.success || mobile?.success) {
+      onConversionSuccess('document') // persist tokens_used + trial-exhaustion flip
       saveHistory({
         url: normalized,
         timestamp: Date.now(),
@@ -615,6 +637,8 @@ export default function Lighthouse() {
         },
       })
       window.dispatchEvent(new Event('lighthouse-history-updated'))
+    } else {
+      refund()
     }
   }
 
@@ -622,7 +646,7 @@ export default function Lighthouse() {
   if (!isOnline) {
     return (
       <section className="section py-8">
-        <PageHeader version={status?.version} />
+        <PageHeader version={status?.version} metered={metered} />
         <div className="rounded-xl border border-destructive/40 bg-destructive/10 p-8 flex flex-col items-center justify-center gap-3 text-center h-64">
           <WifiOff className="size-8 text-destructive" />
           <p className="text-sm font-medium text-destructive">No internet connection</p>
@@ -636,7 +660,7 @@ export default function Lighthouse() {
 
   return (
     <section className="section py-8">
-      <PageHeader version={status?.version} />
+      <PageHeader version={status?.version} metered={metered} />
 
       {/* URL input */}
       <div className="flex gap-3 mb-2">
@@ -817,18 +841,28 @@ function CompareView({ desktop, mobile, url, onRetry }: { desktop: AuditResult; 
 
 // ─── Page header ──────────────────────────────────────────────────────────────
 
-function PageHeader({ version }: { version: string | null | undefined }) {
+function PageHeader({ version, metered }: { version: string | null | undefined; metered: boolean }) {
   return (
-    <div className="mb-6">
-      <div className="flex items-center gap-2">
-        <h2 className="text-2xl font-body font-semibold">Lighthouse Audit</h2>
-        {version && (
-          <span className="text-xs text-muted-foreground/60 border border-border rounded px-1.5 py-0.5">v{version}</span>
-        )}
+    <div className="mb-6 flex items-start justify-between gap-4">
+      <div>
+        <div className="flex items-center gap-2">
+          <h2 className="text-2xl font-body font-semibold">Lighthouse Audit</h2>
+          {version && (
+            <span className="text-xs text-muted-foreground/60 border border-border rounded px-1.5 py-0.5">v{version}</span>
+          )}
+        </div>
+        <p className="text-sm text-muted-foreground mt-1">
+          Audit any website for performance, accessibility, SEO, and best practices - runs locally.
+        </p>
       </div>
-      <p className="text-sm text-muted-foreground mt-1">
-        Audit any website for performance, accessibility, SEO, and best practices - runs locally, no limits.
-      </p>
+      {metered && (
+        <div className="flex items-start gap-2.5 rounded-xl border border-primary/30 bg-primary/5 px-3.5 py-2.5 max-w-xs shrink-0">
+          <Info className="size-4 text-primary shrink-0 mt-0.5" />
+          <p className="text-xs text-muted-foreground">
+            Each audit uses <span className="font-medium text-foreground">5 tokens</span>, charged only when it returns results.
+          </p>
+        </div>
+      )}
     </div>
   )
 }
