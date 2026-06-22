@@ -179,11 +179,22 @@ function isSelfEcho(updatedAt: string | undefined): boolean {
 // record every conversion regardless. Synchronous localStorage RMW → parallel-safe. Returns
 // [refund, reserved]; reserved=false means the combined free budget can't cover it. Paid plans
 // are ungated. Call refund() if the conversion later fails - it reverses the exact split taken.
-export function spendTokens(engine: EngineType, plan: string, costOverride?: number): [() => void, boolean] {
-    const cost = costOverride ?? TOKEN_COSTS[engine]
+// opts.cost overrides the per-engine cost (used by PDF saves: 5 new / 2 re-save).
+// opts.countCategory (default true) controls whether the per-category analytics count
+// (image/document/video/audio shown in the Usage card) is bumped. PDF editor/merge saves spend
+// tokens but pass countCategory:false - that tally is reserved for actual file *conversions*, not
+// PDF editing/merging.
+export function spendTokens(
+    engine: EngineType,
+    plan: string,
+    opts: { cost?: number; countCategory?: boolean } = {},
+): [() => void, boolean] {
+    const cost = opts.cost ?? TOKEN_COSTS[engine]
+    const countCategory = opts.countCategory ?? true
 
-    // Paid plans: ungated - just record the per-category analytics count.
+    // Paid plans: ungated - only record the per-category analytics count (when applicable).
     if (plan !== 'trial' && plan !== 'limited') {
+        if (!countCategory) return [() => {}, true]
         const local = getLocal()
         local[engine] += 1
         setLocal(local)
@@ -207,7 +218,7 @@ export function spendTokens(engine: EngineType, plan: string, costOverride?: num
     }
 
     const local = getLocal()
-    local[engine] += 1
+    if (countCategory) local[engine] += 1
     local.tokensUsed += trialPart // ≤ trialRemaining, so tokensUsed caps at TRIAL_TOKEN_LIMIT
     setLocal(local)
 
@@ -218,7 +229,7 @@ export function spendTokens(engine: EngineType, plan: string, costOverride?: num
             setDailyLocal(d)
         }
         const l = getLocal()
-        if (l[engine] > 0) l[engine] -= 1
+        if (countCategory && l[engine] > 0) l[engine] -= 1
         l.tokensUsed = Math.max(0, l.tokensUsed - trialPart)
         setLocal(l)
     }, true]

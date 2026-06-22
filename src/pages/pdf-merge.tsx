@@ -1,10 +1,12 @@
-import { useState } from 'react'
-import { FilePlus, Download, AlertCircle, RotateCcw, Loader2, GripVertical, X } from 'lucide-react'
+import { useState, useEffect } from 'react'
+import { FilePlus, Download, AlertCircle, RotateCcw, Loader2, GripVertical, X, Info } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { cn } from '@/lib/utils'
-import { usePdfSaveMeter } from '@/lib/usePdfSaveMeter'
+import { usePdfSaveMeter, resetMergeSaveSession } from '@/lib/usePdfSaveMeter'
+import { useAuth } from '@/lib/useAuth'
+import { isPaidPlan } from '@/store/useAuthStore'
 
 type Status = 'idle' | 'merging' | 'done' | 'error'
 
@@ -29,10 +31,13 @@ export default function PdfMerge() {
   const [error, setError] = useState<string | null>(null)
   const [draggingId, setDraggingId] = useState<string | null>(null)
   const [dragOverId, setDragOverId] = useState<string | null>(null)
-  // dirty = a freshly merged buffer not yet saved. First save after a merge costs 5 (new
-  // document); saving the same buffer again ("Save again") costs 2 (clean re-save).
-  const [dirty, setDirty] = useState(false)
-  const { reserve, onSaved } = usePdfSaveMeter()
+  const { reserveMergeSave, markMergeSaved, onSaved } = usePdfSaveMeter()
+  const { plan } = useAuth()
+  const metered = !isPaidPlan(plan)
+
+  // A merge-page visit is one session: the first save (any merge) costs 5, every later save -
+  // including after re-merging different files - costs 2, until the page is left or Reset is hit.
+  useEffect(() => { resetMergeSaveSession() }, [])
 
   const addFiles = async () => {
     const res = await window.electron.pdfPickFiles()
@@ -75,7 +80,6 @@ export default function PdfMerge() {
     try {
       await window.electron.pdfMerge({ filePaths: files.map(f => f.path) })
       setMerged(true)
-      setDirty(true)
       setStatus('done')
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : String(err))
@@ -84,13 +88,13 @@ export default function PdfMerge() {
   }
 
   const save = async () => {
-    // 5 tokens for the first save of a freshly merged doc, 2 for a clean re-save.
-    const refund = reserve(dirty ? 5 : 2)
+    // First save this session costs 5, every later save (even after re-merging) costs 2.
+    const refund = reserveMergeSave()
     if (!refund) return
     const res = await window.electron.pdfMergeSave()
     if (res.canceled || !res.filePath) { refund(); return }
     setSavedPath(res.filePath)
-    setDirty(false)
+    markMergeSaved()
     onSaved()
   }
 
@@ -100,7 +104,7 @@ export default function PdfMerge() {
     setSavedPath(null)
     setError(null)
     setStatus('idle')
-    setDirty(false)
+    resetMergeSaveSession() // start over - next save bills as the first (5)
   }
 
   const isMerging = status === 'merging'
@@ -110,17 +114,27 @@ export default function PdfMerge() {
 
   return (
     <section className="section py-8">
-      <div className="mb-6 flex items-start justify-between">
+      <div className="mb-6 flex items-start justify-between gap-4">
         <div>
           <h2 className="text-2xl font-body font-semibold text-foreground">Merge PDFs</h2>
           <p className="text-sm text-muted-foreground mt-1">Combine multiple PDF files into one.</p>
         </div>
-        {(isDone || isError) && (
-          <Button variant="outline" size="sm" onClick={reset} className="gap-1.5 shrink-0">
-            <RotateCcw className="size-3.5" />
-            Reset
-          </Button>
-        )}
+        <div className="flex items-start gap-2.5 shrink-0">
+          {(isDone || isError) && (
+            <Button variant="outline" size="sm" onClick={reset} className="gap-1.5 shrink-0">
+              <RotateCcw className="size-3.5" />
+              Reset
+            </Button>
+          )}
+          {metered && (
+            <div className="flex items-start gap-2.5 rounded-xl border border-primary/30 bg-primary/5 px-3.5 py-2.5 max-w-xs">
+              <Info className="size-4 text-primary shrink-0 mt-0.5" />
+              <p className="text-xs text-muted-foreground">
+                Saving uses <span className="font-medium text-foreground">5 tokens</span> for a new merge, then <span className="font-medium text-foreground">2</span> for each re-save.
+              </p>
+            </div>
+          )}
+        </div>
       </div>
 
       <div className="flex gap-6">

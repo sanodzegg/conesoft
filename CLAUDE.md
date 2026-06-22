@@ -188,16 +188,20 @@ Tokens are spent via `spendTokens` (reserve up front, `refund()` on failure) in 
 - `favicons.tsx` `handleFile` and `image-compression.tsx` `download` - **image** (1); compression
   meters only the actual download (the live preview re-encodes freely). Both gate entry UI with
   `isAtLimit('image', plan)` → "Upgrade to Pro".
-- **PDF editor + merge saves** - **document**, via the `usePdfSaveMeter` hook. `spendTokens` takes
-  an optional `costOverride`: **first save of a document = 5**, **every later save of the same
-  document = 2**. *Editor:* the hook keeps a module-level `editorSavedOnce` flag - the first save
-  of an opened file is 5, all subsequent saves are 2 regardless of how much was edited between
-  them (`reserveEditorSave()` / `markEditorSaved()`); `resetEditorSaveSession()` fires when a new
-  file is opened/closed (`pdf-editor.tsx`), so the singleton is safe (editor is single-file).
-  *Merge:* a fresh merge is dirty → first save 5; "Save again" is 2; a re-merge resets to dirty.
-  Reserve happens *before* the edit op so an out-of-budget user is blocked before any work; refund
-  on op failure or a canceled save dialog. PDF routes stay open to all plans (not gated) - they're
-  metered, so a limited user spends daily tokens, trial spends trial tokens, paid is ungated.
+- **PDF editor + merge saves** - **document tokens only**, via the `usePdfSaveMeter` hook.
+  `spendTokens` takes an options arg `{ cost?, countCategory? }`; PDF saves pass
+  `countCategory:false`, so they spend tokens but do **not** bump the per-category "Documents"
+  analytics count (that tally is for actual document *conversions* only). Both tools are
+  **session-priced**: the **first save of a session = 5**,
+  **every later save = 2**, regardless of how much was edited or re-merged in between. Two separate
+  module-level flags (`editorSavedOnce` / `mergeSavedOnce`) so the tools don't affect each other.
+  *Editor:* `reserveEditorSave()` / `markEditorSaved()`; `resetEditorSaveSession()` fires when a
+  file is opened/closed (`pdf-editor.tsx`). *Merge:* `reserveMergeSave()` / `markMergeSaved()`;
+  `resetMergeSaveSession()` fires on page mount and on Reset (`pdf-merge.tsx`) - so re-merging
+  different files in the same visit still bills as a re-save (2). Reserve happens *before* the edit
+  op so an out-of-budget user is blocked before any work; refund on op failure or a canceled save
+  dialog. PDF routes stay open to all plans (not gated) - they're metered, so a limited user spends
+  daily tokens, trial spends trial tokens, paid is ungated.
 
 The shared `onConversionSuccess` in `main.tsx` only triggers server sync + the exhaustion flip -
 **it does not spend.**

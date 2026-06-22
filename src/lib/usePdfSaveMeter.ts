@@ -9,12 +9,16 @@ import { toast } from 'sonner'
 // save dialog - mirroring the homepage converter. Paid plans are ungated (spendTokens just
 // counts), so saves never block.
 
-// Whether the currently-open EDITOR document has been saved at least once this session. First
-// save = 5 (producing the output), every save after = 2, regardless of how much was edited in
-// between. Reset when a new file is opened (pdf-editor.tsx). Module-level singleton - the
-// editor is single-file / single-window, like the main-process editorBuffer it mirrors.
+// Whether the current EDITOR / MERGE document has been saved at least once this session. First
+// save = 5 (producing the output), every save after = 2, regardless of how much was edited or
+// re-merged in between. Reset on a clear new-document boundary: the editor resets when a file is
+// opened/closed (pdf-editor.tsx); merge resets when the page mounts or Reset is clicked
+// (pdf-merge.tsx). Separate flags so the two tools don't affect each other's pricing.
+// Module-level singletons - each tool is single-document / single-window.
 let editorSavedOnce = false
+let mergeSavedOnce = false
 export function resetEditorSaveSession() { editorSavedOnce = false }
+export function resetMergeSaveSession() { mergeSavedOnce = false }
 
 const NEW_DOC_COST = 5
 const RESAVE_COST = 2
@@ -26,7 +30,9 @@ export function usePdfSaveMeter() {
     // Reserve a document token. Returns the refund fn, or null if the budget can't cover it
     // (a toast is shown).
     function reserve(cost: number): (() => void) | null {
-        const [refund, reserved] = spendTokens('document', plan, cost)
+        // countCategory:false - PDF saves spend tokens but don't bump the per-category
+        // "Documents" analytics count; that tally is for actual document conversions only.
+        const [refund, reserved] = spendTokens('document', plan, { cost, countCategory: false })
         if (!reserved) {
             toast.error('PDF limit reached', {
                 description: 'Upgrade to Pro to keep saving PDFs.',
@@ -38,12 +44,12 @@ export function usePdfSaveMeter() {
     }
 
     return {
-        // Merge: pass the cost directly (5 for a fresh merge, 2 for "Save again").
-        reserve,
-        // Editor: 5 for the first save of the open document, 2 for each subsequent save.
+        // 5 for the first save of the document this session, 2 for each subsequent save.
         reserveEditorSave() { return reserve(editorSavedOnce ? RESAVE_COST : NEW_DOC_COST) },
-        // Mark the open editor document as saved so later saves bill as re-saves (2).
+        reserveMergeSave() { return reserve(mergeSavedOnce ? RESAVE_COST : NEW_DOC_COST) },
+        // Mark the document saved so later saves this session bill as re-saves (2).
         markEditorSaved() { editorSavedOnce = true },
+        markMergeSaved() { mergeSavedOnce = true },
         // Call once the file is actually written (triggers server sync + exhaustion flip).
         onSaved() { onConversionSuccess('document') },
     }
