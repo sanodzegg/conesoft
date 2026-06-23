@@ -19,7 +19,7 @@ import { useBgRemove } from './layers/use-bg-remove'
 import { exportCanvas } from './utils/export-canvas'
 import { useAuth } from '@/lib/useAuth'
 import { useConversionCountContext } from '@/lib/ConversionCountContext'
-import { spendTokens, isTrialExhausted } from '@/lib/useConversionCount'
+import { spendTokens, isTrialExhausted, imageToolCost } from '@/lib/useConversionCount'
 import { toast } from 'sonner'
 
 interface Rect { x: number; y: number; w: number; h: number }
@@ -151,13 +151,15 @@ export default function CropEditor({ file, onReset }: Props) {
     imgRef, initCanvas,
   })
 
-  // Export. Charge one image token on a successful download only (all the live editing is
-  // free); refund if the canvas fails to encode. Open to all plans: trial and limited are
-  // metered (trial then daily tokens), paid is ungated.
+  // Export. Charge on a successful download only (all the live editing is free); refund if the
+  // canvas fails to encode. Open to all plans: trial and limited are metered (trial pays 1,
+  // limited pays imageToolCost = 5; trial budget then daily tokens), paid is ungated.
+  // countCategory:false - editing spends tokens but isn't a file *conversion*, so it doesn't
+  // bump the per-category Images stat.
   const handleExport = async (format: 'png' | 'jpeg' | 'webp', quality: number) => {
     const img = imgRef.current
     if (!img) return
-    const [refund, reserved] = spendTokens('image', plan)
+    const [refund, reserved] = spendTokens('image', plan, { cost: imageToolCost(plan), countCategory: false })
     if (!reserved) {
       toast.error(
         plan === 'limited' || isTrialExhausted()

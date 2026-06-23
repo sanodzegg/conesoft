@@ -6,7 +6,7 @@ import type { FaviconResult } from "@/components/favicons/favicon-results"
 const FaviconResults = lazy(() => import("@/components/favicons/favicon-results"))
 import { useAuth } from "@/lib/useAuth"
 import { isPaidPlan } from "@/store/useAuthStore"
-import { isAtLimit } from "@/lib/useConversionCount"
+import { isAtLimit, imageToolCost } from "@/lib/useConversionCount"
 
 type State =
     | { status: 'idle' }
@@ -17,7 +17,8 @@ type State =
 export default function FaviconConversion() {
     const [state, setState] = useState<State>({ status: 'idle' })
     const { plan } = useAuth()
-    const atLimit = isAtLimit('image', plan)
+    const cost = imageToolCost(plan)
+    const atLimit = isAtLimit('image', plan, cost)
     const metered = !isPaidPlan(plan)
 
     const handleFile = async (file: File) => {
@@ -52,7 +53,7 @@ export default function FaviconConversion() {
                     <div className="flex items-start gap-2.5 rounded-xl border border-primary/30 bg-primary/5 px-3.5 py-2.5 max-w-xs shrink-0">
                         <Info className="size-4 text-primary shrink-0 mt-0.5" />
                         <p className="text-xs text-muted-foreground">
-                            Each icon set costs <span className="font-medium text-foreground">1 token</span>, charged on your first download.
+                            Each icon set costs <span className="font-medium text-foreground">{cost} token{cost === 1 ? '' : 's'}</span>, charged on your first download.
                         </p>
                     </div>
                 )}

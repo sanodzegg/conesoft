@@ -9,7 +9,7 @@ import { cn } from '@/lib/utils'
 import { useAuth } from '@/lib/useAuth'
 import { isPaidPlan } from '@/store/useAuthStore'
 import { useConversionCountContext } from '@/lib/ConversionCountContext'
-import { spendTokens, isAtLimit, isTrialExhausted } from '@/lib/useConversionCount'
+import { spendTokens, isAtLimit, isTrialExhausted, imageToolCost } from '@/lib/useConversionCount'
 
 const ComparisonSlider = lazy(() => import('@/components/settings/comparison-slider'))
 
@@ -44,7 +44,8 @@ export default function ImageCompression() {
   const navigate = useNavigate()
   const { plan } = useAuth()
   const { onConversionSuccess } = useConversionCountContext()
-  const atLimit = isAtLimit('image', plan)
+  const cost = imageToolCost(plan)
+  const atLimit = isAtLimit('image', plan, cost)
   const metered = !isPaidPlan(plan)
 
   const loadFile = (file: File) => {
@@ -77,8 +78,9 @@ export default function ImageCompression() {
   const download = async () => {
     if (!fileRef.current) return
     // The live preview re-encodes constantly and is free; only an actual download counts.
-    // Reserve one image token up front and refund it if the encode fails.
-    const [refund, reserved] = spendTokens('image', plan)
+    // Reserve tokens up front and refund if the encode fails. countCategory:false - compressing
+    // spends tokens but isn't a file *conversion*, so it doesn't bump the per-category Images stat.
+    const [refund, reserved] = spendTokens('image', plan, { cost, countCategory: false })
     if (!reserved) {
       toast.error(
         plan === 'limited' || isTrialExhausted()
@@ -139,7 +141,7 @@ export default function ImageCompression() {
             <div className="flex items-start gap-2.5 rounded-xl border border-primary/30 bg-primary/5 px-3.5 py-2.5 max-w-xs">
               <Info className="size-4 text-primary shrink-0 mt-0.5" />
               <p className="text-xs text-muted-foreground">
-                Each download costs <span className="font-medium text-foreground">1 token</span>. The live preview is free.
+                Each download costs <span className="font-medium text-foreground">{cost} token{cost === 1 ? '' : 's'}</span>. The live preview is free.
               </p>
             </div>
           )}

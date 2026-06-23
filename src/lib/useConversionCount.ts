@@ -39,6 +39,16 @@ const BACKFILL_COSTS: Record<EngineType, number> = {
 export const TRIAL_TOKEN_LIMIT = 100   // lifetime trial budget
 export const DAILY_TOKEN_LIMIT = 50    // limited-tier daily allowance
 
+// Image "creative" tools (editor export, compression, favicon set, palette, SVG) bill the
+// churned/expired `limited` tier more than `trial` per successful download: trial pays the
+// flat image cost (1), limited pays IMAGE_TOOL_LIMITED_COST (5). Paid is ungated. Pass the
+// result as spendTokens(..., { cost }) and isAtLimit(engine, plan, cost) so the gate matches
+// the charge. The homepage converter keeps the flat TOKEN_COSTS.image (1) for every plan.
+export const IMAGE_TOOL_LIMITED_COST = 5
+export function imageToolCost(plan: string): number {
+    return plan === 'limited' ? IMAGE_TOOL_LIMITED_COST : TOKEN_COSTS.image
+}
+
 interface LocalCounts extends ConversionCounts {
     tokensUsed: number
 }
@@ -236,9 +246,10 @@ export function spendTokens(
 }
 
 // "At limit" = this conversion can't be covered by the combined trial + daily free budget.
-export function isAtLimit(engine: EngineType, plan: string): boolean {
+// `cost` defaults to the per-engine cost; pass a plan-specific override (e.g. imageToolCost)
+// to gate a tool that charges more than the flat rate.
+export function isAtLimit(engine: EngineType, plan: string, cost: number = TOKEN_COSTS[engine]): boolean {
     if (plan !== 'trial' && plan !== 'limited') return false
-    const cost = TOKEN_COSTS[engine]
     const trialRemaining = Math.max(0, TRIAL_TOKEN_LIMIT - getLocal().tokensUsed)
     const dailyPart = Math.max(0, cost - trialRemaining)
     return dailyPart > 0 && getDailyTokens() + dailyPart > DAILY_TOKEN_LIMIT

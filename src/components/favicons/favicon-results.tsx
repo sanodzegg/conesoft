@@ -4,7 +4,7 @@ import { Download } from "lucide-react"
 import { toast } from "sonner"
 import { useAuth } from "@/lib/useAuth"
 import { useConversionCountContext } from "@/lib/ConversionCountContext"
-import { spendTokens } from "@/lib/useConversionCount"
+import { spendTokens, imageToolCost } from "@/lib/useConversionCount"
 import icnsReadme from "./icns-readme.txt?raw"
 
 
@@ -36,11 +36,13 @@ export default function FaviconResults({ result, sourceFile, onReset }: Props) {
     useEffect(() => () => { Object.values(previewUrls).forEach(URL.revokeObjectURL) }, [previewUrls])
 
     // Save via the native dialog, metering the first save of the set and refunding on cancel.
+    // countCategory:false - generating a favicon set spends tokens but isn't counted as a file
+    // *conversion*, so it doesn't bump the per-category Images stat (matches the other image tools).
     const meteredSave = async (bytes: number[], fileName: string, format: string, title?: string) => {
         const first = !chargedRef.current
         let refund: (() => void) | null = null
         if (first) {
-            const [r, reserved] = spendTokens('image', plan)
+            const [r, reserved] = spendTokens('image', plan, { cost: imageToolCost(plan), countCategory: false })
             if (!reserved) {
                 toast.error('Conversion limit reached. Upgrade to continue.', {
                     description: 'Upgrade to Pro for unlimited favicons.', duration: 5000,

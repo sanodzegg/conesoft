@@ -6,7 +6,7 @@ import { Combobox, ComboboxInput, ComboboxContent, ComboboxList, ComboboxItem } 
 import { cn } from '@/lib/utils'
 import { useAuth } from '@/lib/useAuth'
 import { isPaidPlan } from '@/store/useAuthStore'
-import { spendTokens } from '@/lib/useConversionCount'
+import { spendTokens, imageToolCost } from '@/lib/useConversionCount'
 import { useConversionCountContext } from '@/lib/ConversionCountContext'
 import SvgDropzone from '@/components/svg-editor/svg-dropzone'
 import {
@@ -84,6 +84,7 @@ export default function SvgEditor() {
     const [minifiedUri, setMinifiedUri] = useState('')
     const [selectedColorIdx, setSelectedColorIdx] = useState<number | null>(null)
     const { plan } = useAuth()
+    const cost = imageToolCost(plan)
     const { onConversionSuccess } = useConversionCountContext()
     const metered = !isPaidPlan(plan)
 
@@ -184,9 +185,9 @@ export default function SvgEditor() {
         setSelectedColorIdx(null)
     }, [])
 
-    // One token per successful download (editing/optimizing/copying is free); refund on cancel.
+    // Charge per successful download (editing/optimizing/copying is free); refund on cancel.
     const handleDownload = async () => {
-        const [refund, reserved] = spendTokens('image', plan, { cost: 1, countCategory: false })
+        const [refund, reserved] = spendTokens('image', plan, { cost, countCategory: false })
         if (!reserved) {
             toast.error('Conversion limit reached. Upgrade to continue.', {
                 description: 'Upgrade to Pro for unlimited SVG exports.', duration: 5000,
@@ -213,7 +214,7 @@ export default function SvgEditor() {
                         <div className="flex items-start gap-2.5 rounded-xl border border-primary/30 bg-primary/5 px-3.5 py-2.5 max-w-xs shrink-0">
                             <Info className="size-4 text-primary shrink-0 mt-0.5" />
                             <p className="text-xs text-muted-foreground">
-                                Each download costs <span className="font-medium text-foreground">1 token</span>. Editing and copying are free.
+                                Each download costs <span className="font-medium text-foreground">{cost} token{cost === 1 ? '' : 's'}</span>. Editing and copying are free.
                             </p>
                         </div>
                     )}
@@ -241,7 +242,7 @@ export default function SvgEditor() {
                         <div className="flex items-start gap-2.5 rounded-xl border border-primary/30 bg-primary/5 px-3.5 py-2.5 max-w-xs">
                             <Info className="size-4 text-primary shrink-0 mt-0.5" />
                             <p className="text-xs text-muted-foreground">
-                                Each download costs <span className="font-medium text-foreground">1 token</span>. Editing and copying are free.
+                                Each download costs <span className="font-medium text-foreground">{cost} token{cost === 1 ? '' : 's'}</span>. Editing and copying are free.
                             </p>
                         </div>
                     )}
