@@ -1,11 +1,12 @@
 import { useState, lazy } from "react"
+import { Info } from "lucide-react"
 import FaviconDropzone from "@/components/favicons/favicon-dropzone"
 import type { FaviconResult } from "@/components/favicons/favicon-results"
 
 const FaviconResults = lazy(() => import("@/components/favicons/favicon-results"))
-import { useConversionCountContext } from "@/lib/ConversionCountContext"
 import { useAuth } from "@/lib/useAuth"
-import { spendTokens, isAtLimit, isTrialExhausted } from "@/lib/useConversionCount"
+import { isPaidPlan } from "@/store/useAuthStore"
+import { isAtLimit } from "@/lib/useConversionCount"
 
 type State =
     | { status: 'idle' }
@@ -15,24 +16,13 @@ type State =
 
 export default function FaviconConversion() {
     const [state, setState] = useState<State>({ status: 'idle' })
-    const { onConversionSuccess } = useConversionCountContext()
     const { plan } = useAuth()
     const atLimit = isAtLimit('image', plan)
+    const metered = !isPaidPlan(plan)
 
     const handleFile = async (file: File) => {
-        // Generating a favicon set is one image conversion - reserve a token up front and
-        // refund it if the generation fails, mirroring the homepage converter.
-        const [refund, reserved] = spendTokens('image', plan)
-        if (!reserved) {
-            setState({
-                status: 'error',
-                message: plan === 'limited' || isTrialExhausted()
-                    ? 'Daily limit reached. Try again tomorrow or upgrade to Pro.'
-                    : 'Conversion limit reached. Upgrade to continue.',
-            })
-            return
-        }
-
+        // Generating the set is free (it's just a preview); the single image token is charged
+        // on the first actual download in FaviconResults, so a canceled save costs nothing.
         setState({ status: 'converting' })
         try {
             const buffer = await file.arrayBuffer()
@@ -42,9 +32,7 @@ export default function FaviconConversion() {
                 pngs: raw.pngs,
             }
             setState({ status: 'done', result, file })
-            onConversionSuccess('image')
         } catch (e) {
-            refund()
             setState({ status: 'error', message: e instanceof Error ? e.message : 'Conversion failed' })
         }
     }
@@ -53,11 +41,21 @@ export default function FaviconConversion() {
 
     return (
         <section className="section py-8">
-            <div className="mb-6">
-                <h2 className="text-2xl font-body font-semibold text-foreground">Favicon Generator</h2>
-                <p className="text-sm text-muted-foreground mt-1">
-                    Upload any image and get the complete icon set - .ico, PNGs from 16 to 1024px, and macOS .icns.
-                </p>
+            <div className="mb-6 flex items-start justify-between gap-4">
+                <div>
+                    <h2 className="text-2xl font-body font-semibold text-foreground">Favicon Generator</h2>
+                    <p className="text-sm text-muted-foreground mt-1">
+                        Upload any image and get the complete icon set - .ico, PNGs from 16 to 1024px, and macOS .icns.
+                    </p>
+                </div>
+                {metered && (
+                    <div className="flex items-start gap-2.5 rounded-xl border border-primary/30 bg-primary/5 px-3.5 py-2.5 max-w-xs shrink-0">
+                        <Info className="size-4 text-primary shrink-0 mt-0.5" />
+                        <p className="text-xs text-muted-foreground">
+                            Each icon set costs <span className="font-medium text-foreground">1 token</span>, charged on your first download.
+                        </p>
+                    </div>
+                )}
             </div>
 
             {state.status === 'idle' && (

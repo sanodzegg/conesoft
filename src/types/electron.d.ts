@@ -73,6 +73,7 @@ declare interface Window {
     // Auto-download
     pickDownloadFolder: () => Promise<string | null>
     saveConvertedFile: (folderPath: string, fileName: string, buffer: ArrayBuffer) => Promise<string>
+    saveImageBuffer: (opts: { buffer: number[]; fileName: string; format: string; title?: string }) => Promise<{ canceled: boolean; filePath?: string }>
 
     // PDF Editor
     pdfEditorPickFile: () => Promise<{ canceled: true } | { canceled: false; path: string; name: string; size: number }>

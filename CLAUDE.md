@@ -185,9 +185,19 @@ reverses the exact split. Reservation is a synchronous localStorage RMW, so imag
 ### ⚠️ Where metering is wired (and where it ISN'T)
 Tokens are spent via `spendTokens` (reserve up front, `refund()` on failure) in these places:
 - `conversionService.convertFile` (homepage) - per-engine cost.
-- `favicons.tsx` `handleFile` and `image-compression.tsx` `download` - **image** (1); compression
-  meters only the actual download (the live preview re-encodes freely). Both gate entry UI with
-  `isAtLimit('image', plan)` → "Upgrade to Pro".
+- **Image** (1), charged on the **actual saved download** (not the button click). All three save
+  through the native dialog via `window.electron.saveImageBuffer` (handler in `electron/file-save.js`,
+  returns `{ canceled, filePath }`) so a **canceled save refunds** the reserved token; the live
+  preview / editing is always free:
+  - `image-compression.tsx` `download` - reserves, encodes, saves; refund on cancel or encode error.
+    Gates the Download button with `isAtLimit('image', plan)` → "Upgrade to Pro".
+  - `favicons.tsx` - generation is **free** (just a preview). The single token is charged in
+    `favicon-results.tsx` on the **first download of a generated set** (ICO / PNG / "Download All"
+    zip); every later download of the same set is free (`chargedRef`, resets on remount = new set).
+    The dropzone still gates with `isAtLimit`.
+  - **Image editor** export (`crop-editor.tsx` → `exportCanvas` returns `'saved' | 'canceled' |
+    'failed'`) - reserves before export, refunds on cancel (silent) or failure (toast). Route is
+    `ProRoute`, so limited never reaches it; only trial is metered, paid is ungated.
 - **PDF editor + merge saves** - **document tokens only**, via the `usePdfSaveMeter` hook.
   `spendTokens` takes an options arg `{ cost?, countCategory? }`; PDF saves pass
   `countCategory:false`, so they spend tokens but do **not** bump the per-category "Documents"

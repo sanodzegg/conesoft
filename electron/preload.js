@@ -42,6 +42,7 @@ contextBridge.exposeInMainWorld('electron', {
   // Auto-download
   pickDownloadFolder: () => ipcRenderer.invoke('pick-download-folder'),
   saveConvertedFile: (folderPath, fileName, buffer) => ipcRenderer.invoke('save-converted-file', folderPath, fileName, buffer),
+  saveImageBuffer: (opts) => ipcRenderer.invoke('save-image-buffer', opts),
 
   // Batch rename
   batchRenamePickFolder: () => ipcRenderer.invoke('batch-rename-pick-folder'),

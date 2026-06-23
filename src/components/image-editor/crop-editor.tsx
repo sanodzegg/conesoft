@@ -17,6 +17,10 @@ import { useCropInteraction, type DragState, type TextDragState } from './layers
 import { useUndoRedo } from './layers/use-undo-redo'
 import { useBgRemove } from './layers/use-bg-remove'
 import { exportCanvas } from './utils/export-canvas'
+import { useAuth } from '@/lib/useAuth'
+import { useConversionCountContext } from '@/lib/ConversionCountContext'
+import { spendTokens, isTrialExhausted } from '@/lib/useConversionCount'
+import { toast } from 'sonner'
 
 interface Rect { x: number; y: number; w: number; h: number }
 
@@ -26,6 +30,9 @@ interface Props {
 }
 
 export default function CropEditor({ file, onReset }: Props) {
+  const { plan } = useAuth()
+  const { onConversionSuccess } = useConversionCountContext()
+
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const ctxRef = useRef<CanvasRenderingContext2D | null>(null)
   const containerRef = useRef<HTMLDivElement>(null)
@@ -144,11 +151,23 @@ export default function CropEditor({ file, onReset }: Props) {
     imgRef, initCanvas,
   })
 
-  // Export
-  const handleExport = (format: 'png' | 'jpeg' | 'webp', quality: number) => {
+  // Export. Charge one image token on a successful download only (all the live editing is
+  // free); refund if the canvas fails to encode. Paid plans are ungated, limited can't reach
+  // this route (ProRoute), so in practice only trial users are metered.
+  const handleExport = async (format: 'png' | 'jpeg' | 'webp', quality: number) => {
     const img = imgRef.current
     if (!img) return
-    exportCanvas({
+    const [refund, reserved] = spendTokens('image', plan)
+    if (!reserved) {
+      toast.error(
+        plan === 'limited' || isTrialExhausted()
+          ? 'Daily limit reached. Try again tomorrow or upgrade to Pro.'
+          : 'Conversion limit reached. Upgrade to continue.',
+        { description: 'Upgrade to Pro for unlimited exports.', duration: 5000 }
+      )
+      return
+    }
+    const result = await exportCanvas({
       img,
       crop: cropRef.current,
       transform: transformRef.current,
@@ -160,6 +179,10 @@ export default function CropEditor({ file, onReset }: Props) {
       format,
       quality,
     })
+    // Refund on anything that isn't a real save (canceled dialog or encode failure); only a
+    // genuine failure gets an error toast.
+    if (result !== 'saved') { refund(); if (result === 'failed') toast.error('Export failed'); return }
+    onConversionSuccess('image')
   }
 
   const exportW = resize.enabled ? resize.w : Math.round(crop.w)

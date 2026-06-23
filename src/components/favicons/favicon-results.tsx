@@ -1,6 +1,10 @@
-import { useMemo, useEffect } from "react"
+import { useMemo, useEffect, useRef } from "react"
 import { Button } from "../ui/button"
 import { Download } from "lucide-react"
+import { toast } from "sonner"
+import { useAuth } from "@/lib/useAuth"
+import { useConversionCountContext } from "@/lib/ConversionCountContext"
+import { spendTokens } from "@/lib/useConversionCount"
 import icnsReadme from "./icns-readme.txt?raw"
 
 
@@ -17,17 +21,13 @@ interface Props {
     onReset: () => void
 }
 
-function downloadBlob(blob: Blob, name: string) {
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url
-    a.download = name
-    a.click()
-    URL.revokeObjectURL(url)
-}
-
 export default function FaviconResults({ result, sourceFile, onReset }: Props) {
     const baseName = sourceFile.name.replace(/\.[^.]+$/, '')
+    const { plan } = useAuth()
+    const { onConversionSuccess } = useConversionCountContext()
+    // The whole generated set costs one image token, charged on the first download (every
+    // later download of the same set is free). Resets when a new set is generated (remount).
+    const chargedRef = useRef(false)
 
     const previewUrls = useMemo(() =>
         Object.fromEntries(result.pngs.map(({ size, buf }) => [size, URL.createObjectURL(new Blob([buf], { type: 'image/png' }))]))
@@ -35,12 +35,31 @@ export default function FaviconResults({ result, sourceFile, onReset }: Props) {
 
     useEffect(() => () => { Object.values(previewUrls).forEach(URL.revokeObjectURL) }, [previewUrls])
 
+    // Save via the native dialog, metering the first save of the set and refunding on cancel.
+    const meteredSave = async (bytes: number[], fileName: string, format: string, title?: string) => {
+        const first = !chargedRef.current
+        let refund: (() => void) | null = null
+        if (first) {
+            const [r, reserved] = spendTokens('image', plan)
+            if (!reserved) {
+                toast.error('Conversion limit reached. Upgrade to continue.', {
+                    description: 'Upgrade to Pro for unlimited favicons.', duration: 5000,
+                })
+                return
+            }
+            refund = r
+        }
+        const res = await window.electron.saveImageBuffer({ buffer: bytes, fileName, format, title })
+        if (res.canceled) { refund?.(); return }
+        if (first) { chargedRef.current = true; onConversionSuccess('image') }
+    }
+
     const downloadIco = () => {
-        downloadBlob(new Blob([result.ico], { type: 'image/x-icon' }), 'favicon.ico')
+        meteredSave(Array.from(new Uint8Array(result.ico)), 'favicon.ico', 'ico')
     }
 
     const downloadPng = (size: number, buf: ArrayBuffer) => {
-        downloadBlob(new Blob([buf], { type: 'image/png' }), `icon-${size}x${size}.png`)
+        meteredSave(Array.from(new Uint8Array(buf)), `icon-${size}x${size}.png`, 'png')
     }
 
     // iconutil requires specific filenames: 1x and @2x pairs
@@ -77,7 +96,8 @@ export default function FaviconResults({ result, sourceFile, onReset }: Props) {
         icns.file('README.txt', icnsReadme)
 
         const blob = await zip.generateAsync({ type: 'blob' })
-        downloadBlob(blob, `${baseName}-icons.zip`)
+        const bytes = Array.from(new Uint8Array(await blob.arrayBuffer()))
+        meteredSave(bytes, `${baseName}-icons.zip`, 'zip', 'Save icons')
     }
 
     return (

@@ -22,11 +22,16 @@ export interface ExportParams {
   quality: number
 }
 
+// 'saved' once the file is written, 'canceled' if the user dismissed the save dialog, and
+// 'failed' if the canvas couldn't encode - so the caller can refund a reserved token on
+// anything that isn't a real save, but only surface an error for an actual failure.
+export type ExportResult = 'saved' | 'canceled' | 'failed'
+
 export function exportCanvas({
   img, crop, transform, adjustments, resize,
   textOverlays, drawCommands,
   fileName, format, quality,
-}: ExportParams): void {
+}: ExportParams): Promise<ExportResult> {
   const c = crop
   const t = transform
   const a = adjustments
@@ -87,11 +92,16 @@ export function exportCanvas({
   }
 
   const mimeType = format === 'jpeg' ? 'image/jpeg' : format === 'webp' ? 'image/webp' : 'image/png'
-  out.toBlob(blob => {
-    if (!blob) return
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url; a.download = fileName; a.click()
-    URL.revokeObjectURL(url)
-  }, mimeType, quality / 100)
+  return new Promise<ExportResult>(resolve => {
+    out.toBlob(async blob => {
+      if (!blob) { resolve('failed'); return }
+      try {
+        const bytes = Array.from(new Uint8Array(await blob.arrayBuffer()))
+        const result = await window.electron.saveImageBuffer({ buffer: bytes, fileName, format })
+        resolve(result.canceled ? 'canceled' : 'saved')
+      } catch {
+        resolve('failed')
+      }
+    }, mimeType, quality / 100)
+  })
 }
