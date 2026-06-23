@@ -37,6 +37,20 @@ export async function convertSingle(file: File, deps: ConversionDeps): Promise<v
   await convertAll([file], deps)
 }
 
+// Live homepage reservations, keyed by fileKey. spendTokens commits the spend to localStorage
+// synchronously before the async engine runs; if the page is reloaded mid-batch the try/catch
+// refund below never fires and those tokens leak. We mirror each in-flight reservation here and
+// reverse any still outstanding on unload, so a refresh can't burn tokens for conversions that
+// never produced a downloadable result. Files that settle (success or failure) remove themselves,
+// so only genuinely in-flight files are refunded.
+const inFlightRefunds = new Map<string, () => void>()
+
+if (typeof window !== 'undefined') {
+  window.addEventListener('beforeunload', () => {
+    inFlightRefunds.forEach((refund) => refund())
+  })
+}
+
 async function convertFile(file: File, filePlan: string, deps: ConversionDeps): Promise<void> {
   const engine = getEngineForFile(file)
   if (!engine) {
@@ -45,9 +59,13 @@ async function convertFile(file: File, filePlan: string, deps: ConversionDeps): 
   }
 
   const limitType = toEngineType(engine.id)
+  const key = fileKey(file)
 
-  // Reserve slot upfront for all plan types - plan is already resolved per-file
-  // before dispatch so parallel conversions use the correct bucket.
+  // Reserve slot upfront for all plan types - plan is already resolved per-file before dispatch
+  // so parallel conversions use the correct bucket. The reservation is mirrored in inFlightRefunds
+  // so a mid-batch reload refunds it; refund()/commit() are guarded to fire at most once (the
+  // unload sweep and the failure path must not double-reverse).
+  let settled = false
   let refund = () => {}
   if (limitType) {
     const [r, reserved] = spendTokens(limitType, filePlan)
@@ -58,7 +76,19 @@ async function convertFile(file: File, filePlan: string, deps: ConversionDeps): 
       deps.setFailedFile(file, msg)
       return
     }
-    refund = r
+    refund = () => {
+      if (settled) return
+      settled = true
+      inFlightRefunds.delete(key)
+      r()
+    }
+    inFlightRefunds.set(key, refund)
+  }
+  // Conversion committed: drop it from the unload registry without reversing the spend.
+  const commit = () => {
+    if (settled) return
+    settled = true
+    inFlightRefunds.delete(key)
   }
 
   const settings = deps.fileSettings[fileKey(file)]
@@ -83,6 +113,7 @@ async function convertFile(file: File, filePlan: string, deps: ConversionDeps): 
     deps.setConvertedFile(file, blob)
     deps.unmarkFileConverting(file)
     deps.removeFile(file)
+    commit()
     deps.onConversionSuccess?.(engine.id)
   } catch (err) {
     refund()
