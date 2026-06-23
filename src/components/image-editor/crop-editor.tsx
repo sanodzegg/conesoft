@@ -152,8 +152,8 @@ export default function CropEditor({ file, onReset }: Props) {
   })
 
   // Export. Charge one image token on a successful download only (all the live editing is
-  // free); refund if the canvas fails to encode. Paid plans are ungated, limited can't reach
-  // this route (ProRoute), so in practice only trial users are metered.
+  // free); refund if the canvas fails to encode. Open to all plans: trial and limited are
+  // metered (trial then daily tokens), paid is ungated.
   const handleExport = async (format: 'png' | 'jpeg' | 'webp', quality: number) => {
     const img = imgRef.current
     if (!img) return

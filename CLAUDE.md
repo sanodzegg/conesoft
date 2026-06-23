@@ -196,8 +196,8 @@ Tokens are spent via `spendTokens` (reserve up front, `refund()` on failure) in 
     zip); every later download of the same set is free (`chargedRef`, resets on remount = new set).
     The dropzone still gates with `isAtLimit`.
   - **Image editor** export (`crop-editor.tsx` → `exportCanvas` returns `'saved' | 'canceled' |
-    'failed'`) - reserves before export, refunds on cancel (silent) or failure (toast). Route is
-    `ProRoute`, so limited never reaches it; only trial is metered, paid is ungated.
+    'failed'`) - reserves before export, refunds on cancel (silent) or failure (toast). **Open to
+    all plans**, so trial **and** limited are metered (paid ungated).
 - **PDF editor + merge saves** - **document tokens only**, via the `usePdfSaveMeter` hook.
   `spendTokens` takes an options arg `{ cost?, countCategory? }`; PDF saves pass
   `countCategory:false`, so they spend tokens but do **not** bump the per-category "Documents"
@@ -210,8 +210,8 @@ Tokens are spent via `spendTokens` (reserve up front, `refund()` on failure) in 
   `resetMergeSaveSession()` fires on page mount and on Reset (`pdf-merge.tsx`) - so re-merging
   different files in the same visit still bills as a re-save (2). Reserve happens *before* the edit
   op so an out-of-budget user is blocked before any work; refund on op failure or a canceled save
-  dialog. PDF routes stay open to all plans (not gated) - they're metered, so a limited user spends
-  daily tokens, trial spends trial tokens, paid is ungated.
+  dialog. Both PDF tools are `proOnly` (nav-locked for limited + `ProRoute`), so in practice only
+  trial users are metered here; paid is ungated.
 - **Web tools** (all `countCategory:false`, so no per-category count - not conversions):
   - **Screenshot** (`use-screenshot.ts` `save`) and **Website PDF** (`website-pdf.tsx` `save`) charge
     on **download**, not capture/generate (preview is free), and are **session-priced per page visit**
@@ -228,9 +228,8 @@ Tokens are spent via `spendTokens` (reserve up front, `refund()` on failure) in 
   `handleDownload`) charge a **flat 1 token per successful download** (`countCategory:false` - not
   conversions), **not** session-priced: each saved file is its own token, and extracting / editing /
   copying is always free. Both save through `window.electron.saveImageBuffer` (text via `TextEncoder`,
-  PNG via base64 decode), so a **canceled save refunds**. Palette is `ProRoute` (limited redirected,
-  so trial-only in practice); SVG editor is **open to all plans**, so trial **and** limited are metered
-  there (paid ungated). Both show the `metered` info callout (`!isPaidPlan(plan)`).
+  PNG via base64 decode), so a **canceled save refunds**. Both are **open to all plans**, so trial
+  **and** limited are metered (paid ungated). Both show the `metered` info callout (`!isPaidPlan(plan)`).
 
 The shared `onConversionSuccess` in `main.tsx` only triggers server sync + the exhaustion flip -
 **it does not spend.**
@@ -243,9 +242,9 @@ the nav item carries `paidOnly` (stricter sibling of `proOnly`)
 and renders locked (Lock icon, not clickable) for any non-paid plan; the route is guarded by
 `PaidRoute` (`router.tsx`) which redirects non-paid plans to `/pricing`. `isChildLocked` in
 `navigation-secondary.tsx` is the shared lock predicate: `(isLimited && proOnly) || (!isPaid &&
-paidOnly)` - so `proOnly` locks only `limited` (trial still reaches those tools, e.g. metered
-compression), while `paidOnly` also locks `trial`. `isPaidPlan(plan)` (`useAuthStore`) is the
-single source of truth for "paid". See `TODO.md` #1.
+paidOnly)` - so `proOnly` locks only `limited` (trial still reaches those tools, e.g. the metered
+web tools + PDF editor/merge), while `paidOnly` also locks `trial`. `isPaidPlan(plan)` (`useAuthStore`)
+is the single source of truth for "paid". See `TODO.md` #1.
 
 ---
 
@@ -264,9 +263,10 @@ single source of truth for "paid". See `TODO.md` #1.
 - **Favicon generator** - `.ico` (multi-size) + PNGs (16…1024) + macOS icns set.
 - **SVG editor** - CodeMirror, prettify/optimize (SVGO), preview, code export
   (React/Vue/Angular/HTML), data-URI variants.
-- **PDF merge** - drag-reorder, merge, save.
-- **PDF editor** - page reorder/rotate/delete, watermark (text/image), form fill, burn
-  annotations (highlight/draw/arrow/text). Renders via `pdfjs-dist`.
+- **PDF merge** (`proOnly` - nav-locked for limited + `ProRoute`) - drag-reorder, merge, save.
+- **PDF editor** (`proOnly` - nav-locked for limited + `ProRoute`) - page reorder/rotate/delete,
+  watermark (text/image), form fill, burn annotations (highlight/draw/arrow/text). Renders via
+  `pdfjs-dist`.
 - **Website PDF** / **Website Screenshot** - Playwright; share one browser instance;
   block trackers, scroll to trigger lazy media, replace videos, strip fixed/chat widgets.
 - **Lighthouse** - performance/a11y/best-practices/SEO audit, desktop+mobile in parallel.

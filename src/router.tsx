@@ -44,16 +44,16 @@ export default function Router() {
           <Route path="/settings" element={<Settings />} />
           <Route path="/extensions/favicon" element={<FaviconConversion />} />
           <Route path="/extensions/svg-editor" element={<SvgEditor />} />
-          <Route path="/extensions/pdf-merge" element={<PdfMerge />} />
-          <Route path="/extensions/image-editor" element={<ProRoute><ImageEditor /></ProRoute>} />
+          <Route path="/extensions/pdf-merge" element={<ProRoute><PdfMerge /></ProRoute>} />
+          <Route path="/extensions/image-editor" element={<ImageEditor />} />
           <Route path="/extensions/bulk-converter" element={<PaidRoute><BulkConverter /></PaidRoute>} />
           <Route path="/extensions/batch-rename" element={<PaidRoute><BatchRename /></PaidRoute>} />
-          <Route path="/extensions/palette-extractor" element={<ProRoute><PaletteExtractor /></ProRoute>} />
-          <Route path="/extensions/image-compression" element={<ProRoute><ImageCompression /></ProRoute>} />
+          <Route path="/extensions/palette-extractor" element={<PaletteExtractor />} />
+          <Route path="/extensions/image-compression" element={<ImageCompression />} />
           <Route path="/extensions/website-screenshot" element={<ProRoute><WebsiteScreenshot /></ProRoute>} />
           <Route path="/extensions/website-pdf" element={<ProRoute><WebsitePdf /></ProRoute>} />
           <Route path="/extensions/lighthouse" element={<ProRoute><Lighthouse /></ProRoute>} />
-          <Route path="/extensions/pdf-editor" element={<PdfEditor />} />
+          <Route path="/extensions/pdf-editor" element={<ProRoute><PdfEditor /></ProRoute>} />
           <Route path="/account" element={<Auth />} />
           <Route path="/pricing" element={<Pricing />} />
       </Routes>
