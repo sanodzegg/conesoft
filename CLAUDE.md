@@ -152,6 +152,12 @@ job (`src/lib/useConversionCount.ts`):
 **Token costs per conversion:** image **1**, document **5**, video **8**, audio **6**
 (`TOKEN_COSTS`). So the 100-token trial ≈ 100 images, or 20 docs, or ~12 videos, or any mix.
 
+**Image *creative tools* surcharge:** the five image-tool downloads (editor export, compression,
+favicon set, palette, SVG) do **not** use the flat `TOKEN_COSTS.image`. They bill via
+`imageToolCost(plan)` (`useConversionCount.ts`): **1 on trial, 5 on `limited`** (paid ungated).
+The homepage converter keeps the flat image cost (1) for every plan. `isAtLimit(engine, plan,
+cost?)` takes an optional cost override so a tool's download gate matches its actual charge.
+
 ### Spend = trial-first, then spill into daily
 `spendTokens(engine, plan)` is the single reservation primitive (replaced the old
 `incrementLocalCount`). Free tiers (trial **and** limited) draw from the remaining trial
@@ -162,9 +168,20 @@ combined trial+daily budget can't cover it. Paid plans are ungated (count only).
 reverses the exact split. Reservation is a synchronous localStorage RMW, so image concurrency
 (4) is parallel-safe.
 
-- `convertFile` reserves via `spendTokens` before converting, refunds on failure.
+- `convertFile` reserves via `spendTokens` before converting, refunds on failure. **Reservations
+  are per-file at task start** (NOT all upfront), so the in-flight exposure is only ≤4 images +
+  1 non-image at any moment. Each live reservation is mirrored in a module-level `inFlightRefunds`
+  map and reversed on `beforeunload` (`conversionService.ts`), so a **mid-batch page reload refunds
+  the in-flight files** instead of leaking their tokens (the `try/catch` refund can't run once the
+  JS context is torn down). `refund()`/`commit()` are guarded by a `settled` flag so the unload
+  sweep and the failure path never double-reverse; `commit()` drops a succeeded file from the map
+  without reversing. ⚠️ Covers reload/close, **not** hard crashes/force-kill; and a refund that
+  lands after the 800 ms server sync already pushed can be re-inflated on next sign-in (same
+  accepted `max`-merge caveat as the reset trigger). Bulletproofing = a localStorage write-ahead
+  ledger reconciled on startup (not built).
 - `convertAll` pre-flights the same spill simulation to skip files the budget can't cover (one
-  toast), then dispatches images at concurrency 4 / non-images sequentially.
+  toast), then dispatches images at concurrency 4 / non-images sequentially. The pre-flight is a
+  **simulation only** (no spend); the real reservation happens in `convertFile`.
 - The trial→limited flip fires from `onConversionSuccess` (`main.tsx`) once `tokens_used` hits
   the cap (plus an upfront flip if already exhausted entering the batch).
 
@@ -185,16 +202,20 @@ reverses the exact split. Reservation is a synchronous localStorage RMW, so imag
 ### ⚠️ Where metering is wired (and where it ISN'T)
 Tokens are spent via `spendTokens` (reserve up front, `refund()` on failure) in these places:
 - `conversionService.convertFile` (homepage) - per-engine cost.
-- **Image** (1), charged on the **actual saved download** (not the button click). All three save
-  through the native dialog via `window.electron.saveImageBuffer` (handler in `electron/file-save.js`,
-  returns `{ canceled, filePath }`) so a **canceled save refunds** the reserved token; the live
-  preview / editing is always free:
+- **Image creative tools** (editor export, compression, favicon set), charged on the **actual saved
+  download** (not the button click), at `imageToolCost(plan)` (**1 trial / 5 limited**) and **all
+  `countCategory:false`** - they spend tokens but are **not** counted as image *conversions* (that
+  per-category tally is reserved for the homepage converter). All save through the native dialog via
+  `window.electron.saveImageBuffer` (handler in `electron/file-save.js`, returns `{ canceled,
+  filePath }`) so a **canceled save refunds** the reserved tokens; the live preview / editing is
+  always free. The on-screen `metered` callout (`!isPaidPlan(plan)`) renders the live cost
+  (`{cost} token{s}`) so trial shows "1 token" and limited "5 tokens":
   - `image-compression.tsx` `download` - reserves, encodes, saves; refund on cancel or encode error.
-    Gates the Download button with `isAtLimit('image', plan)` → "Upgrade to Pro".
-  - `favicons.tsx` - generation is **free** (just a preview). The single token is charged in
+    Gates the Download button with `isAtLimit('image', plan, cost)` → "Upgrade to Pro".
+  - `favicons.tsx` - generation is **free** (just a preview). The tokens are charged in
     `favicon-results.tsx` on the **first download of a generated set** (ICO / PNG / "Download All"
     zip); every later download of the same set is free (`chargedRef`, resets on remount = new set).
-    The dropzone still gates with `isAtLimit`.
+    The dropzone still gates with `isAtLimit('image', plan, cost)`.
   - **Image editor** export (`crop-editor.tsx` → `exportCanvas` returns `'saved' | 'canceled' |
     'failed'`) - reserves before export, refunds on cancel (silent) or failure (toast). **Open to
     all plans**, so trial **and** limited are metered (paid ungated).
@@ -225,11 +246,12 @@ Tokens are spent via `spendTokens` (reserve up front, `refund()` on failure) in 
   These three are `proOnly` (nav-locked for limited), so in practice only trial users are metered;
   paid is ungated.
 - **Palette extractor** (`palette-extractor.tsx` `handleExport`) and **SVG editor** (`svg-editor.tsx`
-  `handleDownload`) charge a **flat 1 token per successful download** (`countCategory:false` - not
-  conversions), **not** session-priced: each saved file is its own token, and extracting / editing /
-  copying is always free. Both save through `window.electron.saveImageBuffer` (text via `TextEncoder`,
-  PNG via base64 decode), so a **canceled save refunds**. Both are **open to all plans**, so trial
-  **and** limited are metered (paid ungated). Both show the `metered` info callout (`!isPaidPlan(plan)`).
+  `handleDownload`) charge `imageToolCost(plan)` (**1 trial / 5 limited**) per successful download
+  (`countCategory:false` - not conversions), **not** session-priced: each saved file is its own
+  charge, and extracting / editing / copying is always free. Both save through
+  `window.electron.saveImageBuffer` (text via `TextEncoder`, PNG via base64 decode), so a **canceled
+  save refunds**. Both are **open to all plans**, so trial **and** limited are metered (paid
+  ungated). Both show the `metered` info callout (`!isPaidPlan(plan)`) rendering the live cost.
 
 The shared `onConversionSuccess` in `main.tsx` only triggers server sync + the exhaustion flip -
 **it does not spend.**
