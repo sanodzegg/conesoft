@@ -1,9 +1,14 @@
 import { useState, useRef, useCallback } from 'react'
-import { Pipette, Loader2, Copy, Check, RotateCcw, Import, Download } from 'lucide-react'
+import { Pipette, Loader2, Copy, Check, RotateCcw, Import, Download, Info } from 'lucide-react'
+import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
 import { Badge } from '@/components/ui/badge'
 import { cn } from '@/lib/utils'
+import { useAuth } from '@/lib/useAuth'
+import { isPaidPlan } from '@/store/useAuthStore'
+import { spendTokens } from '@/lib/useConversionCount'
+import { useConversionCountContext } from '@/lib/ConversionCountContext'
 
 type RGB = [number, number, number]
 
@@ -97,23 +102,6 @@ function exportSwatchPng(palette: RGB[]): string {
   return canvas.toDataURL('image/png')
 }
 
-function downloadText(content: string, filename: string) {
-  const blob = new Blob([content], { type: 'text/plain' })
-  const url = URL.createObjectURL(blob)
-  const a = document.createElement('a')
-  a.href = url
-  a.download = filename
-  a.click()
-  URL.revokeObjectURL(url)
-}
-
-function downloadPng(dataUrl: string, filename: string) {
-  const a = document.createElement('a')
-  a.href = dataUrl
-  a.download = filename
-  a.click()
-}
-
 type ExportFormat = 'css' | 'tailwind' | 'json' | 'png'
 
 const EXPORT_OPTIONS: { id: ExportFormat; label: string; description: string }[] = [
@@ -137,6 +125,9 @@ export default function PaletteExtractor() {
   const [exportFormat, setExportFormat] = useState<ExportFormat>('css')
   const inputRef = useRef<HTMLInputElement>(null)
   const dropzoneRef = useRef<HTMLDivElement>(null)
+  const { plan } = useAuth()
+  const { onConversionSuccess } = useConversionCountContext()
+  const metered = !isPaidPlan(plan)
 
   const loadFile = (file: File) => {
     if (!file.type.startsWith('image/')) return
@@ -180,13 +171,40 @@ export default function PaletteExtractor() {
     setTimeout(() => setCopied(null), 1500)
   }
 
-  const handleExport = () => {
+  const handleExport = async () => {
     if (!palette.length) return
     const base = (imageName ?? 'palette').replace(/\.[^.]+$/, '')
-    if (exportFormat === 'css') downloadText(exportCssVars(palette), `${base}-palette.css`)
-    else if (exportFormat === 'tailwind') downloadText(exportTailwind(palette), `${base}-tailwind.js`)
-    else if (exportFormat === 'json') downloadText(exportJson(palette), `${base}-palette.json`)
-    else if (exportFormat === 'png') downloadPng(exportSwatchPng(palette), `${base}-palette.png`)
+
+    let bytes: number[]
+    let fileName: string
+    let format: string
+    if (exportFormat === 'png') {
+      const b64 = exportSwatchPng(palette).split(',')[1]
+      bytes = Array.from(atob(b64), ch => ch.charCodeAt(0))
+      fileName = `${base}-palette.png`
+      format = 'png'
+    } else {
+      const content = exportFormat === 'css' ? exportCssVars(palette)
+        : exportFormat === 'tailwind' ? exportTailwind(palette)
+        : exportJson(palette)
+      bytes = Array.from(new TextEncoder().encode(content))
+      fileName = exportFormat === 'css' ? `${base}-palette.css`
+        : exportFormat === 'tailwind' ? `${base}-tailwind.js`
+        : `${base}-palette.json`
+      format = exportFormat === 'tailwind' ? 'js' : exportFormat
+    }
+
+    // One token per successful download (extracting/copying is free); refund on a canceled save.
+    const [refund, reserved] = spendTokens('image', plan, { cost: 1, countCategory: false })
+    if (!reserved) {
+      toast.error('Conversion limit reached. Upgrade to continue.', {
+        description: 'Upgrade to Pro for unlimited palette exports.', duration: 5000,
+      })
+      return
+    }
+    const res = await window.electron.saveImageBuffer({ buffer: bytes, fileName, format, title: 'Save palette' })
+    if (res.canceled) { refund(); return }
+    onConversionSuccess('image')
   }
 
   const reset = () => {
@@ -199,17 +217,27 @@ export default function PaletteExtractor() {
 
   return (
     <section className="section py-8">
-      <div className="mb-6 flex items-start justify-between">
+      <div className="mb-6 flex items-start justify-between gap-4">
         <div>
           <h2 className="text-2xl font-body font-semibold text-foreground">Palette Extractor</h2>
           <p className="text-sm text-muted-foreground mt-1">Extract dominant colors from any image.</p>
         </div>
-        {imageSrc && (
-          <Button variant="outline" size="sm" onClick={reset} className="gap-1.5 shrink-0">
-            <RotateCcw className="size-3.5" />
-            Reset
-          </Button>
-        )}
+        <div className="flex items-start gap-2.5 shrink-0">
+          {imageSrc && (
+            <Button variant="outline" size="sm" onClick={reset} className="gap-1.5 shrink-0">
+              <RotateCcw className="size-3.5" />
+              Reset
+            </Button>
+          )}
+          {metered && (
+            <div className="flex items-start gap-2.5 rounded-xl border border-primary/30 bg-primary/5 px-3.5 py-2.5 max-w-xs">
+              <Info className="size-4 text-primary shrink-0 mt-0.5" />
+              <p className="text-xs text-muted-foreground">
+                Each download costs <span className="font-medium text-foreground">1 token</span>. Extracting and copying colors are free.
+              </p>
+            </div>
+          )}
+        </div>
       </div>
 
       {!imageSrc ? (

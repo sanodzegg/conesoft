@@ -224,6 +224,13 @@ Tokens are spent via `spendTokens` (reserve up front, `refund()` on failure) in 
     desktop+mobile pair, billed once; refunded if both strategies error.
   These three are `proOnly` (nav-locked for limited), so in practice only trial users are metered;
   paid is ungated.
+- **Palette extractor** (`palette-extractor.tsx` `handleExport`) and **SVG editor** (`svg-editor.tsx`
+  `handleDownload`) charge a **flat 1 token per successful download** (`countCategory:false` - not
+  conversions), **not** session-priced: each saved file is its own token, and extracting / editing /
+  copying is always free. Both save through `window.electron.saveImageBuffer` (text via `TextEncoder`,
+  PNG via base64 decode), so a **canceled save refunds**. Palette is `ProRoute` (limited redirected,
+  so trial-only in practice); SVG editor is **open to all plans**, so trial **and** limited are metered
+  there (paid ungated). Both show the `metered` info callout (`!isPaidPlan(plan)`).
 
 The shared `onConversionSuccess` in `main.tsx` only triggers server sync + the exhaustion flip -
 **it does not spend.**

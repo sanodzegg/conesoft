@@ -1,8 +1,13 @@
 import { useState, useMemo, useEffect, useCallback, lazy } from 'react'
-import { RotateCcw, Check, Copy, Download } from 'lucide-react'
+import { RotateCcw, Check, Copy, Download, Info } from 'lucide-react'
+import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Combobox, ComboboxInput, ComboboxContent, ComboboxList, ComboboxItem } from '@/components/ui/combobox'
 import { cn } from '@/lib/utils'
+import { useAuth } from '@/lib/useAuth'
+import { isPaidPlan } from '@/store/useAuthStore'
+import { spendTokens } from '@/lib/useConversionCount'
+import { useConversionCountContext } from '@/lib/ConversionCountContext'
 import SvgDropzone from '@/components/svg-editor/svg-dropzone'
 import {
     optimizeSvg, prettifySvg, extractMeta,
@@ -35,16 +40,6 @@ function preparePreview(code: string, selectedIdx: number | null = null): string
                 .replace(/\s*\bpreserveAspectRatio="[^"]*"/gi, '')
             return `<svg${cleaned} preserveAspectRatio="xMidYMid meet">`
         })
-}
-
-function downloadSvg(code: string) {
-    const blob = new Blob([code], { type: 'image/svg+xml' })
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url
-    a.download = 'image.svg'
-    a.click()
-    URL.revokeObjectURL(url)
 }
 
 function CopyButton({ text }: { text: string }) {
@@ -88,6 +83,9 @@ export default function SvgEditor() {
     const [displayCode, setDisplayCode] = useState('')
     const [minifiedUri, setMinifiedUri] = useState('')
     const [selectedColorIdx, setSelectedColorIdx] = useState<number | null>(null)
+    const { plan } = useAuth()
+    const { onConversionSuccess } = useConversionCountContext()
+    const metered = !isPaidPlan(plan)
 
     const activeCode = code ?? ''
 
@@ -186,14 +184,39 @@ export default function SvgEditor() {
         setSelectedColorIdx(null)
     }, [])
 
+    // One token per successful download (editing/optimizing/copying is free); refund on cancel.
+    const handleDownload = async () => {
+        const [refund, reserved] = spendTokens('image', plan, { cost: 1, countCategory: false })
+        if (!reserved) {
+            toast.error('Conversion limit reached. Upgrade to continue.', {
+                description: 'Upgrade to Pro for unlimited SVG exports.', duration: 5000,
+            })
+            return
+        }
+        const bytes = Array.from(new TextEncoder().encode(activeCode))
+        const res = await window.electron.saveImageBuffer({ buffer: bytes, fileName: 'image.svg', format: 'svg', title: 'Save SVG' })
+        if (res.canceled) { refund(); return }
+        onConversionSuccess('image')
+    }
+
     if (!code) {
         return (
             <section className="section py-8">
-                <div className="mb-6">
-                    <h2 className="text-2xl font-body font-semibold text-foreground">SVG Editor</h2>
-                    <p className="text-sm text-muted-foreground mt-1">
-                        Edit, optimize, and preview SVGs - export as React, Vue, Angular, or data URIs.
-                    </p>
+                <div className="mb-6 flex items-start justify-between gap-4">
+                    <div>
+                        <h2 className="text-2xl font-body font-semibold text-foreground">SVG Editor</h2>
+                        <p className="text-sm text-muted-foreground mt-1">
+                            Edit, optimize, and preview SVGs - export as React, Vue, Angular, or data URIs.
+                        </p>
+                    </div>
+                    {metered && (
+                        <div className="flex items-start gap-2.5 rounded-xl border border-primary/30 bg-primary/5 px-3.5 py-2.5 max-w-xs shrink-0">
+                            <Info className="size-4 text-primary shrink-0 mt-0.5" />
+                            <p className="text-xs text-muted-foreground">
+                                Each download costs <span className="font-medium text-foreground">1 token</span>. Editing and copying are free.
+                            </p>
+                        </div>
+                    )}
                 </div>
                 <SvgDropzone onSvg={loadCode} />
             </section>
@@ -202,17 +225,27 @@ export default function SvgEditor() {
 
     return (
         <section className="section py-8">
-            <div className="mb-6 flex items-center justify-between">
+            <div className="mb-6 flex items-start justify-between gap-4">
                 <div>
                     <h2 className="text-2xl font-body font-semibold text-foreground">SVG Editor</h2>
                     <p className="text-sm text-muted-foreground mt-1">
                         Edit, optimize, and preview SVGs - export as React, Vue, Angular, or data URIs.
                     </p>
                 </div>
-                <Button variant="outline" size="sm" onClick={() => setCode(null)}>
-                    <RotateCcw className="size-3.5 mr-1.5" />
-                    New SVG
-                </Button>
+                <div className="flex items-start gap-2.5 shrink-0">
+                    <Button variant="outline" size="sm" onClick={() => setCode(null)}>
+                        <RotateCcw className="size-3.5 mr-1.5" />
+                        New SVG
+                    </Button>
+                    {metered && (
+                        <div className="flex items-start gap-2.5 rounded-xl border border-primary/30 bg-primary/5 px-3.5 py-2.5 max-w-xs">
+                            <Info className="size-4 text-primary shrink-0 mt-0.5" />
+                            <p className="text-xs text-muted-foreground">
+                                Each download costs <span className="font-medium text-foreground">1 token</span>. Editing and copying are free.
+                            </p>
+                        </div>
+                    )}
+                </div>
             </div>
 
             <div className="grid grid-cols-2 gap-4 h-140">
@@ -246,7 +279,7 @@ export default function SvgEditor() {
                                 size="icon"
                                 className="h-7 w-7 shrink-0"
                                 title="Download SVG"
-                                onClick={() => downloadSvg(activeCode)}
+                                onClick={handleDownload}
                             >
                                 <Download className="size-3.5" />
                             </Button>
