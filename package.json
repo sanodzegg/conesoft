@@ -33,8 +33,14 @@
   "build": {
     "appId": "com.sanodzegg.conesoft",
     "productName": "Conesoft",
+    "protocols": {
+      "name": "Conesoft",
+      "schemes": [
+        "conesoft"
+      ]
+    },
     "mac": {
-      "icon": "build-assets/icon.icns",
+      "icon": "build/icon.icns",
       "category": "public.app-category.graphics-design",
       "target": [
         "dmg",
@@ -42,10 +48,18 @@
       ]
     },
     "win": {
-      "icon": "build-assets/icon.ico",
+      "icon": "build/icon.ico",
       "target": [
-        "nsis"
+        "nsis",
+        "appx"
       ]
+    },
+    "appx": {
+      "identityName": "Conlab.ConeLab",
+      "publisher": "CN=2F9FE4F3-C390-4CF8-9EDF-67E5029D73CC",
+      "publisherDisplayName": "GS Works",
+      "applicationId": "ConeLab",
+      "backgroundColor": "#1a1a1a"
     },
     "files": [
       "dist/**",
@@ -81,7 +95,7 @@
     "buildDependenciesFromSource": false,
     "nativeRebuilder": "legacy"
   },
-  "packageManager": "pnpm@10.33.2",
+  "packageManager": "pnpm@11.9.0",
   "devDependencies": {
     "@tailwindcss/vite": "^4.2.1",
     "@types/fluent-ffmpeg": "^2.1.28",
@@ -105,6 +119,7 @@
     "@codemirror/theme-one-dark": "^6.1.3",
     "@codemirror/view": "^6.40.0",
     "@fontsource-variable/geist": "^5.2.8",
+    "@img/sharp-win32-x64": "0.34.5",
     "@imgly/background-removal": "^1.7.0",
     "@supabase/supabase-js": "^2.100.0",
     "@tanstack/react-virtual": "^3.13.24",

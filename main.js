@@ -45,7 +45,7 @@ function createWindow() {
   mainWindow = new BrowserWindow({
     width,
     height,
-    icon: path.join(__dirname, 'build-assets/icon.icns'),
+    icon: path.join(__dirname, 'build/icon.icns'),
     webPreferences: {
       devTools: isDev,
       nodeIntegration: false,

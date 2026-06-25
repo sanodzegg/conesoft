@@ -24,14 +24,22 @@ export default function Auth() {
 
     useEffect(() => {
         const unsub = window.electron.onOAuthCallback(async (url) => {
-            const hashParams = new URL(url.replace('conesoft://', 'https://conesoft.app/')).hash
-            const params = new URLSearchParams(hashParams.slice(1))
-            const accessToken = params.get('access_token')
-            const refreshToken = params.get('refresh_token')
-            if (accessToken && refreshToken) {
-                await supabase.auth.setSession({ access_token: accessToken, refresh_token: refreshToken })
+            try {
+                const hashParams = new URL(url.replace('conesoft://', 'https://conesoft.app/')).hash
+                const params = new URLSearchParams(hashParams.slice(1))
+                const accessToken = params.get('access_token')
+                const refreshToken = params.get('refresh_token')
+                if (accessToken && refreshToken) {
+                    const { error } = await supabase.auth.setSession({ access_token: accessToken, refresh_token: refreshToken })
+                    if (error) setError(error.message)
+                } else {
+                    setError('Login did not return tokens.')
+                }
+            } catch (e) {
+                setError('Login failed: ' + (e instanceof Error ? e.message : String(e)))
+            } finally {
+                setOauthLoading(null)
             }
-            setOauthLoading(null)
         })
         return unsub
     }, [])
