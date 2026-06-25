@@ -27,15 +27,15 @@ function FormatPicker({ label, description, value, formats, engineId, limited, o
     return (
         <div className="flex items-center justify-between">
             <div>
-                <p className="text-sm 2xl:text-base font-medium text-primary">{label}</p>
-                <p className="text-xs 2xl:text-sm text-muted-foreground mt-0.5">{description}</p>
+                <p className="text-sm xl:text-base font-medium text-primary">{label}</p>
+                <p className="text-xs xl:text-sm text-muted-foreground mt-0.5">{description}</p>
             </div>
             <Combobox value={value} onValueChange={(v) => {
                 if (!v) return
                 const locked = limited ? isFormatLocked(engineId, v) : false
                 if (!locked) onChange(v)
             }} items={formats} filter={null}>
-                <ComboboxInput className={'w-28! h-9! 2xl:w-32! 2xl:h-10! [&_input]:uppercase! [&_input]:select-none!'} readOnly />
+                <ComboboxInput className={'w-28! h-9! xl:w-30! xl:h-10! 2xl:w-32! [&_input]:uppercase! [&_input]:select-none!'} readOnly />
                 <ComboboxContent>
                     <ComboboxList>
                         {(item) => {
@@ -69,12 +69,12 @@ export default function DefaultFormat() {
     const limited = plan === 'limited'
 
     return (
-        <div className="p-5 2xl:p-6 rounded-2xl border border-accent bg-secondary/30 space-y-5 2xl:space-y-6">
+        <div className="p-5 xl:p-6 rounded-2xl border border-accent bg-secondary/30 space-y-5 xl:space-y-6">
             <div>
-                <p className="text-sm 2xl:text-base font-medium text-primary">Default Output Format</p>
-                <p className="text-xs 2xl:text-sm text-muted-foreground mt-0.5">Format applied to newly added files.</p>
+                <p className="text-sm xl:text-base font-medium text-primary">Default Output Format</p>
+                <p className="text-xs xl:text-sm text-muted-foreground mt-0.5">Format applied to newly added files.</p>
             </div>
-            <div className="space-y-4 2xl:space-y-5">
+            <div className="space-y-4 xl:space-y-5">
                 <FormatPicker
                     label="Images"
                     description="JPG, PNG, WEBP, AVIF..."

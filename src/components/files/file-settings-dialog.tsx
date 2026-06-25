@@ -176,25 +176,25 @@ export default function FileSettingsDialog({ file }: { file: File }) {
                     </Button>
                 }
             />
-            <DialogContent className="max-w-sm 2xl:max-w-md">
+            <DialogContent className="max-w-sm xl:max-w-md">
                 <DialogHeader>
-                    <DialogTitle className={'font-body 2xl:text-xl'}>File Settings</DialogTitle>
+                    <DialogTitle className={'font-body xl:text-xl'}>File Settings</DialogTitle>
                 </DialogHeader>
 
-                <div className="space-y-5 2xl:space-y-6">
+                <div className="space-y-5 xl:space-y-6">
                     {/* Resize - image + video */}
                     {(isImage || isVideo) && (
                         <>
                             <div className="space-y-2">
                                 <div className="flex items-center justify-between">
-                                    <p className="text-sm 2xl:text-base font-medium text-primary">Resize</p>
+                                    <p className="text-sm xl:text-base font-medium text-primary">Resize</p>
                                     {srcDims && (
                                         <span className="text-xs text-muted-foreground">Original: {srcDims.w} × {srcDims.h}</span>
                                     )}
                                 </div>
                                 <div className="flex gap-2">
                                     <div className="flex-1">
-                                        <label className="text-xs 2xl:text-sm text-muted-foreground mb-1 block">Width (px)</label>
+                                        <label className="text-xs xl:text-sm text-muted-foreground mb-1 block">Width (px)</label>
                                         <Input
                                             type="number"
                                             placeholder={srcDims ? `${srcDims.w}` : 'Auto'}
@@ -220,7 +220,7 @@ export default function FileSettingsDialog({ file }: { file: File }) {
                                         />
                                     </div>
                                     <div className="flex-1">
-                                        <label className="text-xs 2xl:text-sm text-muted-foreground mb-1 block">Height (px)</label>
+                                        <label className="text-xs xl:text-sm text-muted-foreground mb-1 block">Height (px)</label>
                                         <Input
                                             type="number"
                                             placeholder={srcDims ? `${srcDims.h}` : 'Auto'}
@@ -249,14 +249,14 @@ export default function FileSettingsDialog({ file }: { file: File }) {
                             </div>
 
                             <div className={`space-y-2 ${!width && !height ? 'opacity-40 pointer-events-none' : ''}`}>
-                                <p className="text-sm 2xl:text-base font-medium text-primary">Fit</p>
+                                <p className="text-sm xl:text-base font-medium text-primary">Fit</p>
                                 <div className="flex gap-2">
                                     {FIT_OPTIONS.map(opt => (
                                         <button
                                             key={opt.value}
                                             onClick={() => setFit(opt.value)}
                                             title={opt.description}
-                                            className={`flex-1 rounded-xl border py-2 2xl:py-2.5 text-xs 2xl:text-sm font-medium transition-colors cursor-pointer ${
+                                            className={`flex-1 rounded-xl border py-2 xl:py-2.5 text-xs xl:text-sm font-medium transition-colors cursor-pointer ${
                                                 fit === opt.value
                                                     ? 'border-primary bg-primary text-primary-foreground'
                                                     : 'border-accent bg-secondary/30 text-muted-foreground hover:text-foreground'
@@ -266,7 +266,7 @@ export default function FileSettingsDialog({ file }: { file: File }) {
                                         </button>
                                     ))}
                                 </div>
-                                <p className="text-xs 2xl:text-sm text-muted-foreground">
+                                <p className="text-xs xl:text-sm text-muted-foreground">
                                     {FIT_OPTIONS.find(o => o.value === fit)?.description}
                                 </p>
                             </div>
@@ -277,10 +277,10 @@ export default function FileSettingsDialog({ file }: { file: File }) {
                     {isImage && fileSettings?.targetFormat !== 'gif' && (
                         <div className="space-y-2">
                             <div className="flex items-center justify-between">
-                                <p className="text-sm 2xl:text-base font-medium text-primary">
+                                <p className="text-sm xl:text-base font-medium text-primary">
                                     {fileSettings?.targetFormat === 'png' ? 'Compression' : 'Quality'}
                                 </p>
-                                <span className="text-sm 2xl:text-base font-medium text-primary">
+                                <span className="text-sm xl:text-base font-medium text-primary">
                                     {fileSettings?.targetFormat === 'png'
                                         ? quality >= 100 ? 'None' : quality <= 10 ? 'Max' : `${100 - quality}%`
                                         : quality >= 100 && fileSettings?.targetFormat === 'webp' ? 'Lossless' : `${quality}%`
@@ -308,20 +308,20 @@ export default function FileSettingsDialog({ file }: { file: File }) {
                     {isImage && (
                         <div className="flex items-center justify-between">
                             <div>
-                                <p className="text-sm 2xl:text-base font-medium text-primary">Keep Metadata</p>
-                                <p className="text-xs 2xl:text-sm text-muted-foreground">Preserve EXIF and ICC color profiles</p>
+                                <p className="text-sm xl:text-base font-medium text-primary">Keep Metadata</p>
+                                <p className="text-xs xl:text-sm text-muted-foreground">Preserve EXIF and ICC color profiles</p>
                             </div>
                             <button
                                 role="checkbox"
                                 aria-checked={keepMetadata}
                                 onClick={() => setKeepMetadata(v => !v)}
-                                className={`relative inline-flex h-6 w-11 2xl:h-7 2xl:w-13 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors ${
+                                className={`relative inline-flex h-6 w-11 xl:h-7 xl:w-12 2xl:w-13 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors ${
                                     keepMetadata ? 'bg-primary' : 'bg-accent'
                                 }`}
                             >
                                 <span
-                                    className={`pointer-events-none inline-block size-5 2xl:size-6 rounded-full bg-white shadow-lg transition-transform ${
-                                        keepMetadata ? 'translate-x-5 2xl:translate-x-6' : 'translate-x-0'
+                                    className={`pointer-events-none inline-block size-5 xl:size-6 rounded-full bg-white shadow-lg transition-transform ${
+                                        keepMetadata ? 'translate-x-5 xl:translate-x-6' : 'translate-x-0'
                                     }`}
                                 />
                             </button>

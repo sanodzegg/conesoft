@@ -103,58 +103,58 @@ export default function FaviconResults({ result, sourceFile, onReset }: Props) {
     }
 
     return (
-        <section className="py-6 space-y-4">
+        <section className="py-6 xl:py-7 2xl:py-8 space-y-4 xl:space-y-5">
             <div className="flex items-center justify-between">
-                <h3 className="font-medium text-primary font-body text-base">
+                <h3 className="font-medium text-primary font-body text-base xl:text-lg">
                     Generated Icons
                 </h3>
                 <div className="flex items-center gap-2">
-                    <Button variant="secondary" className="gap-2" onClick={downloadAll}>
-                        <Download className="size-4" />
+                    <Button variant="secondary" className="gap-2 xl:text-sm xl:h-10" onClick={downloadAll}>
+                        <Download className="size-4 xl:size-5" />
                         Download All
                     </Button>
-                    <Button variant="outline" onClick={onReset}>
+                    <Button variant="outline" className="xl:text-sm xl:h-10" onClick={onReset}>
                         Convert Another
                     </Button>
                 </div>
             </div>
 
             {/* ICO file */}
-            <div className="flex items-center justify-between p-4 rounded-2xl border border-accent bg-secondary/30">
+            <div className="flex items-center justify-between p-4 xl:p-5 rounded-2xl border border-accent bg-secondary/30">
                 <div className="flex items-center gap-3">
-                    <div className="flex items-center justify-center w-10 h-10 rounded-sm bg-primary/10 border border-primary/20 shrink-0">
-                        <span className="text-xs font-bold text-primary">ICO</span>
+                    <div className="flex items-center justify-center w-10 h-10 xl:w-11 xl:h-11 rounded-sm bg-primary/10 border border-primary/20 shrink-0">
+                        <span className="text-xs xl:text-sm font-bold text-primary">ICO</span>
                     </div>
                     <div>
-                        <p className="text-sm text-accent-foreground font-body">favicon.ico</p>
-                        <p className="text-xs text-muted-foreground">Contains all {FAVICON_SIZES.length} sizes</p>
+                        <p className="text-sm xl:text-base text-accent-foreground font-body">favicon.ico</p>
+                        <p className="text-xs xl:text-sm text-muted-foreground">Contains all {FAVICON_SIZES.length} sizes</p>
                     </div>
                 </div>
-                <Button variant="secondary" className="text-xs text-primary shrink-0" onClick={downloadIco}>
-                    <Download className="size-3.5 mr-1" />
+                <Button variant="secondary" className="text-xs xl:text-sm text-primary shrink-0" onClick={downloadIco}>
+                    <Download className="size-3.5 xl:size-4 mr-1" />
                     Download
                 </Button>
             </div>
 
             {/* PNG sizes */}
-            <ul className="space-y-2.5">
+            <ul className="space-y-2.5 xl:space-y-3">
                 {result.pngs.map(({ size, buf }) => {
                     const url = previewUrls[size]
                     return (
-                        <li key={size} className="flex items-center justify-between p-4 rounded-2xl border border-accent bg-secondary/30">
+                        <li key={size} className="flex items-center justify-between p-4 xl:p-5 rounded-2xl border border-accent bg-secondary/30">
                             <div className="flex items-center gap-3">
                                 <img
                                     src={url}
                                     alt={`${size}x${size}`}
-                                    className="rounded-sm border border-accent object-cover shrink-0 w-10 h-10"
+                                    className="rounded-sm border border-accent object-cover shrink-0 w-10 h-10 xl:w-11 xl:h-11"
                                 />
                                 <div>
-                                    <p className="text-sm text-accent-foreground font-body">icon-{size}x{size}.png</p>
-                                    <p className="text-xs text-muted-foreground">{size} × {size} px</p>
+                                    <p className="text-sm xl:text-base text-accent-foreground font-body">icon-{size}x{size}.png</p>
+                                    <p className="text-xs xl:text-sm text-muted-foreground">{size} × {size} px</p>
                                 </div>
                             </div>
-                            <Button variant="secondary" className="text-xs text-primary shrink-0" onClick={() => downloadPng(size, buf)}>
-                                <Download className="size-3.5 mr-1" />
+                            <Button variant="secondary" className="text-xs xl:text-sm text-primary shrink-0" onClick={() => downloadPng(size, buf)}>
+                                <Download className="size-3.5 xl:size-4 mr-1" />
                                 Download
                             </Button>
                         </li>

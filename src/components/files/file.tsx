@@ -77,15 +77,15 @@ export default function File({ data }: { data: File }) {
     if (isDone) return null;
 
     return (
-        <div className={`flex items-center justify-start p-4 2xl:p-5 rounded-2xl border bg-secondary/30 ${failedError ? 'border-destructive/40 bg-destructive/5' : isConverting ? 'border-primary/40 bg-primary/5' : 'border-accent'}`}>
-            <Badge variant={'secondary'} className="shrink-0 uppercase h-10 w-10 2xl:h-12 2xl:w-12 rounded-sm mr-2 2xl:mr-3" style={colorStyle}>
+        <div className={`flex items-center justify-start p-4 xl:p-5 rounded-2xl border bg-secondary/30 ${failedError ? 'border-destructive/40 bg-destructive/5' : isConverting ? 'border-primary/40 bg-primary/5' : 'border-accent'}`}>
+            <Badge variant={'secondary'} className="shrink-0 uppercase h-10 w-10 xl:h-11 xl:w-11 2xl:h-12 2xl:w-12 rounded-sm mr-2 xl:mr-3" style={colorStyle}>
                 {ext}
             </Badge>
             <div className="flex flex-col min-w-0 flex-1">
-                <h3 className="text-sm 2xl:text-base font-normal text-accent-foreground font-body truncate">{data.name}</h3>
+                <h3 className="text-sm xl:text-base font-normal text-accent-foreground font-body truncate">{data.name}</h3>
                 {failedError
-                    ? <p className="text-xs 2xl:text-sm font-normal text-destructive">{failedError}</p>
-                    : <p className="text-xs 2xl:text-sm font-normal text-accent-foreground/50">
+                    ? <p className="text-xs xl:text-sm font-normal text-destructive">{failedError}</p>
+                    : <p className="text-xs xl:text-sm font-normal text-accent-foreground/50">
                         {formatBytes(data.size)}
                         {estimatedSize !== null && (
                             <Tooltip>
@@ -109,17 +109,17 @@ export default function File({ data }: { data: File }) {
             </div>
             <div className="flex-1 flex justify-center">
                 {isConverting
-                    ? <Loader2 className="size-5 2xl:size-6 text-primary animate-spin" />
-                    : <MoveRight size={24} className="stroke-accent 2xl:size-7" />
+                    ? <Loader2 className="size-5 xl:size-6 text-primary animate-spin" />
+                    : <MoveRight size={24} className="stroke-accent xl:size-7" />
                 }
             </div>
-            <div className="flex items-center gap-2 shrink-0 justify-end min-w-70.5 2xl:min-w-84">
+            <div className="flex items-center gap-2 shrink-0 justify-end min-w-70.5 xl:min-w-77 2xl:min-w-84">
                 <Combobox value={targetFormat} onValueChange={(v) => {
                     if (!v || isConverting) return
                     const locked = plan === 'limited' && engineId ? isFormatLocked(engineId, v) : false
                     if (!locked) setTargetFormat(data, v)
                 }} items={convertTo}>
-                    <ComboboxInput className={`w-24! h-10! 2xl:w-28! 2xl:h-11! [&_input]:uppercase! [&_input]:select-none! ${isConverting ? 'opacity-50 pointer-events-none' : ''}`} readOnly />
+                    <ComboboxInput className={`w-24! h-10! xl:w-26! xl:h-11! 2xl:w-28! [&_input]:uppercase! [&_input]:select-none! ${isConverting ? 'opacity-50 pointer-events-none' : ''}`} readOnly />
                     <ComboboxContent>
                         <ComboboxList>
                             {(item) => {
@@ -145,29 +145,29 @@ export default function File({ data }: { data: File }) {
                         </span>
                     </TooltipTrigger>
                     <TooltipContent>
-                        <p className="text-sm 2xl:text-base font-light text-accent">File Settings</p>
+                        <p className="text-sm xl:text-base font-light text-accent">File Settings</p>
                     </TooltipContent>
                 </Tooltip>
                 {isImage && (
                     <Tooltip>
                         <TooltipTrigger>
                             <Button variant={'secondary'} className={'group p-2.5! h-full!'} disabled={isConverting} onClick={handleEditInEditor}>
-                                <Pencil className="size-4 2xl:size-5" />
+                                <Pencil className="size-4 xl:size-5" />
                             </Button>
                         </TooltipTrigger>
                         <TooltipContent>
-                            <p className="text-sm 2xl:text-base font-light text-accent">Edit in Image Editor</p>
+                            <p className="text-sm xl:text-base font-light text-accent">Edit in Image Editor</p>
                         </TooltipContent>
                     </Tooltip>
                 )}
                 <Tooltip>
                     <TooltipTrigger>
                         <Button variant={'secondary'} className={'group p-2.5! h-full!'} disabled={isConverting} onClick={handleConvertSingle}>
-                            <ArrowRightIcon className="transition-transform group-hover:translate-x-0.5 size-5 2xl:size-6" />
+                            <ArrowRightIcon className="transition-transform group-hover:translate-x-0.5 size-5 xl:size-6" />
                         </Button>
                     </TooltipTrigger>
                     <TooltipContent>
-                        <p className="text-sm 2xl:text-base font-light text-accent">Convert Single</p>
+                        <p className="text-sm xl:text-base font-light text-accent">Convert Single</p>
                     </TooltipContent>
                 </Tooltip>
                 <Tooltip>
@@ -175,15 +175,15 @@ export default function File({ data }: { data: File }) {
                         <Button
                             variant={failedError ? 'destructive' : 'ghost'}
                             size="icon"
-                            className="shrink-0 2xl:size-10"
+                            className="shrink-0 xl:size-10"
                             disabled={isConverting}
                             onClick={() => removeFile(data)}
                         >
-                            <X className="size-4 2xl:size-5" />
+                            <X className="size-4 xl:size-5" />
                         </Button>
                     </TooltipTrigger>
                     <TooltipContent>
-                        <p className="text-sm 2xl:text-base font-light text-accent">Remove</p>
+                        <p className="text-sm xl:text-base font-light text-accent">Remove</p>
                     </TooltipContent>
                 </Tooltip>
             </div>

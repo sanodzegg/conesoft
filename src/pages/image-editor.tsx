@@ -24,16 +24,16 @@ export default function ImageEditor() {
     }, [pendingEditorFile, setPendingEditorFile])
 
     return (
-        <section className="section py-8">
-            <div className="mb-6 flex items-start justify-between gap-4">
+        <section className="section py-8 xl:py-10 2xl:py-12">
+            <div className="mb-6 xl:mb-7 2xl:mb-8 flex items-start justify-between gap-4">
                 <div>
-                    <h2 className="text-2xl font-body font-semibold text-foreground">Image Editor</h2>
-                    <p className="text-sm text-muted-foreground mt-1">Crop, adjust, annotate, and export your image.</p>
+                    <h2 className="text-2xl xl:text-3xl font-body font-semibold text-foreground">Image Editor</h2>
+                    <p className="text-sm xl:text-base text-muted-foreground mt-1">Crop, adjust, annotate, and export your image.</p>
                 </div>
                 {metered && (
                     <div className="flex items-start gap-2.5 rounded-xl border border-primary/30 bg-primary/5 px-3.5 py-2.5 max-w-xs shrink-0">
-                        <Info className="size-4 text-primary shrink-0 mt-0.5" />
-                        <p className="text-xs text-muted-foreground">
+                        <Info className="size-4 xl:size-5 text-primary shrink-0 mt-0.5" />
+                        <p className="text-xs xl:text-sm text-muted-foreground">
                             Each export costs <span className="font-medium text-foreground">{cost} token{cost === 1 ? '' : 's'}</span>. Editing and preview are free.
                         </p>
                     </div>

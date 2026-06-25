@@ -59,10 +59,10 @@ export default function FileList() {
     const useVirtual = files.length >= VIRTUALIZE_THRESHOLD
 
     return (
-        <section className="py-6 2xl:py-8">
-            <div className="mb-6 2xl:mb-8 flex items-center justify-between">
-                <h3 className="font-medium text-primary/60 font-body text-base 2xl:text-lg">Added ({files.length})</h3>
-                <Button onClick={handleConvertAll} disabled={isConverting} variant={'secondary'} className={'font-normal 2xl:text-base 2xl:h-10 2xl:px-5'}>
+        <section className="py-6 xl:py-7 2xl:py-8">
+            <div className="mb-6 xl:mb-7 2xl:mb-8 flex items-center justify-between">
+                <h3 className="font-medium text-primary/60 font-body text-base xl:text-lg">Added ({files.length})</h3>
+                <Button onClick={handleConvertAll} disabled={isConverting} variant={'secondary'} className={'font-normal xl:text-base xl:h-10 xl:px-5'}>
                     Convert All
                 </Button>
             </div>
@@ -89,7 +89,7 @@ export default function FileList() {
                     </ul>
                 </div>
             ) : (
-                <ul className="space-y-2.5 2xl:space-y-3">
+                <ul className="space-y-2.5 xl:space-y-3">
                     {files.map((file, i) => (
                         <li key={`${file.lastModified}${i}${file.size}`}>
                             <File data={file} />

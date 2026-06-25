@@ -211,14 +211,14 @@ export default function ComparisonSlider({ quality, format = 'jpeg', imageSrc, o
 
       {loaded && (
         <div
-          className="absolute top-0 bottom-0 w-8 2xl:w-10 -translate-x-1/2 flex items-center justify-center cursor-col-resize"
+          className="absolute top-0 bottom-0 w-8 xl:w-9 2xl:w-10 -translate-x-1/2 flex items-center justify-center cursor-col-resize"
           style={{ left: `${position}%` }}
           onMouseDown={onSliderMouseDown}
           onTouchStart={onSliderTouchStart}
         >
           <div className="w-px h-full bg-white/70 shadow-[0_0_6px_rgba(0,0,0,0.5)]" />
-          <div className="absolute top-1/2 -translate-y-1/2 w-8 h-8 2xl:w-10 2xl:h-10 rounded-full bg-white shadow-lg flex items-center justify-center cursor-col-resize">
-            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" className="2xl:scale-125">
+          <div className="absolute top-1/2 -translate-y-1/2 w-8 h-8 xl:w-9 xl:h-9 2xl:w-10 2xl:h-10 rounded-full bg-white shadow-lg flex items-center justify-center cursor-col-resize">
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" className="xl:scale-110 2xl:scale-125">
               <path d="M5 4L2 8L5 12" stroke="#7c3aed" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
               <path d="M11 4L14 8L11 12" stroke="#7c3aed" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
             </svg>
@@ -228,8 +228,8 @@ export default function ComparisonSlider({ quality, format = 'jpeg', imageSrc, o
 
       {loaded && (
         <>
-          <span className="absolute bottom-2 left-3 text-[10px] 2xl:text-xs font-semibold text-white/90 bg-black/40 px-1.5 2xl:px-2 py-0.5 rounded pointer-events-none">Original</span>
-          <span className="absolute bottom-2 right-3 text-[10px] 2xl:text-xs font-semibold text-white/90 bg-black/40 px-1.5 2xl:px-2 py-0.5 rounded pointer-events-none">Quality {quality}%</span>
+          <span className="absolute bottom-2 left-3 text-[10px] xl:text-xs font-semibold text-white/90 bg-black/40 px-1.5 xl:px-2 py-0.5 rounded pointer-events-none">Original</span>
+          <span className="absolute bottom-2 right-3 text-[10px] xl:text-xs font-semibold text-white/90 bg-black/40 px-1.5 xl:px-2 py-0.5 rounded pointer-events-none">Quality {quality}%</span>
         </>
       )}
     </div>

@@ -55,43 +55,43 @@ export function PricingCard({
 
             {badge && badge !== 'current' && (
                 <div className="absolute -top-3 left-1/2 -translate-x-1/2 z-10">
-                    <span className={cn('text-xs 2xl:text-sm font-medium px-3 2xl:px-4 py-1 2xl:py-1.5 rounded-full block', BADGE_CONFIG[badge].className)}>
+                    <span className={cn('text-xs xl:text-sm font-medium px-3 xl:px-4 py-1 xl:py-1.5 rounded-full block', BADGE_CONFIG[badge].className)}>
                         {BADGE_CONFIG[badge].label}
                     </span>
                 </div>
             )}
 
-            <CardHeader className="relative gap-4 2xl:gap-5">
-                <div className="size-14 2xl:size-16 rounded-2xl flex items-center justify-center shrink-0 bg-foreground/10 border border-foreground/15">
-                    <Icon className="size-6 2xl:size-7 text-foreground/70" />
+            <CardHeader className="relative gap-4 xl:gap-5">
+                <div className="size-14 xl:size-15 2xl:size-16 rounded-2xl flex items-center justify-center shrink-0 bg-foreground/10 border border-foreground/15">
+                    <Icon className="size-6 xl:size-7 text-foreground/70" />
                 </div>
 
                 <div>
-                    <CardTitle className="text-2xl 2xl:text-3xl mb-2 font-body font-medium">{title}</CardTitle>
+                    <CardTitle className="text-2xl xl:text-3xl mb-2 font-body font-medium">{title}</CardTitle>
                     <div className="flex items-center gap-1.5">
                         {displayPrice === 0 ? (
-                            <span className="text-4xl 2xl:text-5xl font-medium text-foreground leading-none">FREE</span>
+                            <span className="text-4xl xl:text-5xl font-medium text-foreground leading-none">FREE</span>
                         ) : typeof price === 'object' ? (
                             <>
-                                <span className="text-xl 2xl:text-2xl text-muted-foreground">$</span>
+                                <span className="text-xl xl:text-2xl text-muted-foreground">$</span>
                                 <CountingNumber
                                     number={displayPrice}
                                     decimalPlaces={2}
                                     initiallyStable
                                     inView
                                     transition={{ stiffness: 300, damping: 60 }}
-                                    className="text-4xl 2xl:text-5xl font-medium text-foreground leading-none tabular-nums"
+                                    className="text-4xl xl:text-5xl font-medium text-foreground leading-none tabular-nums"
                                 />
                                 {priceSuffix && (
-                                    <span className="text-sm 2xl:text-base text-muted-foreground mt-auto mb-1 ml-0.5">{priceSuffix}</span>
+                                    <span className="text-sm xl:text-base text-muted-foreground mt-auto mb-1 ml-0.5">{priceSuffix}</span>
                                 )}
                             </>
                         ) : (
                             <>
-                                <span className="text-xl 2xl:text-2xl text-muted-foreground">$</span>
-                                <span className="text-4xl 2xl:text-5xl font-medium text-foreground leading-none">{displayPrice}</span>
+                                <span className="text-xl xl:text-2xl text-muted-foreground">$</span>
+                                <span className="text-4xl xl:text-5xl font-medium text-foreground leading-none">{displayPrice}</span>
                                 {priceSuffix && (
-                                    <span className="text-sm 2xl:text-base text-muted-foreground mt-auto mb-1 ml-0.5">{priceSuffix}</span>
+                                    <span className="text-sm xl:text-base text-muted-foreground mt-auto mb-1 ml-0.5">{priceSuffix}</span>
                                 )}
                             </>
                         )}
@@ -104,7 +104,7 @@ export function PricingCard({
                                     key={i}
                                     onClick={() => onIntervalChange(i)}
                                     className={cn(
-                                        'text-xs 2xl:text-sm px-3 2xl:px-4 py-1 2xl:py-1.5 rounded-full border transition-colors capitalize',
+                                        'text-xs xl:text-sm px-3 xl:px-4 py-1 xl:py-1.5 rounded-full border transition-colors capitalize',
                                         interval === i
                                             ? 'border-primary bg-primary text-primary-foreground'
                                             : 'border-border text-muted-foreground hover:border-primary/50'
@@ -118,20 +118,20 @@ export function PricingCard({
                                     <path d="M19.2502 13.4903C17.2329 13.9151 12.0803 14.7522 10.9872 12.5038C10.1127 10.7051 12.5922 8.94374 11.7177 7.14504C10.6246 4.89667 5.02236 5.95241 3.00505 6.37719" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
                                     <path d="M5.3725 14.6775L1.0002 5.68397L9.9937 1.31167" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
                                 </svg>
-                                <span className="text-xs 2xl:text-sm text-primary font-medium -mb-2 ml-1">Save 25%</span>
+                                <span className="text-xs xl:text-sm text-primary font-medium -mb-2 ml-1">Save 25%</span>
                             </div>
                         </div>
                     ) : (
-                        <CardDescription className="mt-1 2xl:text-base">{description}</CardDescription>
+                        <CardDescription className="mt-1 xl:text-base">{description}</CardDescription>
                     )}
                 </div>
             </CardHeader>
 
             <CardContent className="relative">
-                <ul className="flex flex-col gap-3 2xl:gap-4">
+                <ul className="flex flex-col gap-3 xl:gap-4">
                     {features.map(f => (
-                        <li key={f} className="flex items-start gap-2.5 text-sm 2xl:text-base text-muted-foreground">
-                            <Check className="size-4 2xl:size-5 text-foreground/70 shrink-0 mt-0.5" />
+                        <li key={f} className="flex items-start gap-2.5 text-sm xl:text-base text-muted-foreground">
+                            <Check className="size-4 xl:size-5 text-foreground/70 shrink-0 mt-0.5" />
                             {f}
                         </li>
                     ))}
@@ -139,7 +139,7 @@ export function PricingCard({
             </CardContent>
 
             <CardFooter className="relative mt-auto">
-                <Button variant={ctaVariant} className="w-full h-10 2xl:h-11 2xl:text-base" disabled={badge === 'current' || disabled} onClick={onCtaClick}>
+                <Button variant={ctaVariant} className="w-full h-10 xl:h-11 xl:text-base" disabled={badge === 'current' || disabled} onClick={onCtaClick}>
                     {badge === 'current' ? 'Current Plan' : interval ? `${ctaLabel} (${interval === 'monthly' ? 'Monthly' : 'Annual'})` : ctaLabel}
                 </Button>
             </CardFooter>

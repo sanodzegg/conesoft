@@ -394,7 +394,15 @@ is the single source of truth for "paid". See `TODO.md` #1.
 
 - **Commits:** single line, no body, no bullet points, no co-author trailer. Never stage
   or commit unless the user explicitly says "commit".
-- **No responsive breakpoints** - desktop-only; no `sm:`/`md:`/`lg:` (only `2xl:` scale-ups appear).
+- **Desktop-only, graduated scale** - no `sm:` (no mobile); nothing below `md`, nothing past `2xl`.
+  The standard for built-out pages is a graduated `md:`→`lg:`→`xl:`→`2xl:` ladder: base = compact
+  desktop, multi-step values (paddings, container width, box sizes) get real `lg:`/`xl:` midpoints,
+  and single-step type/icon sizes reach their comfortable size at `xl:`. Keep this ladder consistent
+  when you touch a page. **Done so far:** homepage (`pages/homepage.tsx` + `components/files/*`),
+  settings, pricing, account/auth (`pages/auth.tsx` + `components/profile/*`), and the Image tools
+  (compression, favicons, palette, svg-editor + their dropzones/results, image-editor page shell).
+  **Intentionally left compact:** the image-editor *canvas workspace* (`crop-editor`, the
+  `image-editor/toolbar/*` panels) - it's a tool surface, not a content page.
 - **Icon colors:** full opacity only - no `/40`-style opacity variants on icon colors.
 - **shadcn:** never overwrite existing component files on install.
 - `TooltipContent` must be a sibling of `TooltipTrigger`; add `flex-1 min-w-0` to

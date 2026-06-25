@@ -124,23 +124,23 @@ export default function ImageCompression() {
   const savedPct = saved && originalSize ? Math.round((saved / originalSize) * 100) : null
 
   return (
-    <section className="section py-8">
-      <div className="mb-6 flex items-start justify-between gap-4">
+    <section className="section py-8 xl:py-10 2xl:py-12">
+      <div className="mb-6 xl:mb-7 2xl:mb-8 flex items-start justify-between gap-4">
         <div>
-          <h2 className="text-2xl font-body font-semibold text-foreground">Image Compression</h2>
-          <p className="text-sm text-muted-foreground mt-1">Compress images with live before/after preview.</p>
+          <h2 className="text-2xl xl:text-3xl font-body font-semibold text-foreground">Image Compression</h2>
+          <p className="text-sm xl:text-base text-muted-foreground mt-1">Compress images with live before/after preview.</p>
         </div>
         <div className="flex items-start gap-2.5 shrink-0">
           {imageSrc && (
-            <Button variant="outline" size="sm" onClick={reset} className="gap-1.5 shrink-0">
-              <RotateCcw className="size-3.5" />
+            <Button variant="outline" size="sm" onClick={reset} className="gap-1.5 shrink-0 xl:text-sm xl:h-9">
+              <RotateCcw className="size-3.5 xl:size-4" />
               Reset
             </Button>
           )}
           {metered && (
             <div className="flex items-start gap-2.5 rounded-xl border border-primary/30 bg-primary/5 px-3.5 py-2.5 max-w-xs">
-              <Info className="size-4 text-primary shrink-0 mt-0.5" />
-              <p className="text-xs text-muted-foreground">
+              <Info className="size-4 xl:size-5 text-primary shrink-0 mt-0.5" />
+              <p className="text-xs xl:text-sm text-muted-foreground">
                 Each download costs <span className="font-medium text-foreground">{cost} token{cost === 1 ? '' : 's'}</span>. The live preview is free.
               </p>
             </div>
@@ -157,60 +157,60 @@ export default function ImageCompression() {
             onDragOver={e => { e.preventDefault(); setDragOver(true) }}
             onDragLeave={e => { if (!dropzoneRef.current?.contains(e.relatedTarget as Node)) setDragOver(false) }}
             className={cn(
-              "flex flex-col items-center justify-center py-10 w-full h-90 border border-border hover:border-primary rounded-3xl border-dashed transition-colors cursor-pointer gap-4",
+              "flex flex-col items-center justify-center py-10 xl:py-12 w-full h-90 xl:h-100 2xl:h-108 border border-border hover:border-primary rounded-3xl border-dashed transition-colors cursor-pointer gap-4 xl:gap-5",
               dragOver && "bg-accent"
             )}
           >
-            <Button onClick={() => inputRef.current?.click()} variant="outline" className="w-20 h-20 border-border hover:border-primary transition-colors">
-              <Import className="size-10 stroke-primary" />
+            <Button onClick={() => inputRef.current?.click()} variant="outline" className="w-20 h-20 xl:w-22 xl:h-22 2xl:w-24 2xl:h-24 border-border hover:border-primary transition-colors">
+              <Import className="size-10 xl:size-11 2xl:size-12 stroke-primary" />
             </Button>
             <div className="text-center">
-              <h2 className="text-2xl font-body font-semibold text-foreground">Drop an image here</h2>
+              <h2 className="text-2xl xl:text-3xl font-body font-semibold text-foreground">Drop an image here</h2>
             </div>
             <div className="flex items-center justify-center flex-wrap gap-2">
               {ACCEPTED_EXT.map(ext => (
-                <Badge variant="secondary" key={ext} className="rounded-sm p-3 text-sm font-light text-primary">{ext}</Badge>
+                <Badge variant="secondary" key={ext} className="rounded-sm p-3 xl:p-3.5 text-sm xl:text-base font-light text-primary">{ext}</Badge>
               ))}
             </div>
-            <Button onClick={() => inputRef.current?.click()} className="bg-primary h-12 w-60 text-lg" variant="default">
+            <Button onClick={() => inputRef.current?.click()} className="bg-primary h-12 w-60 xl:h-13 xl:w-66 2xl:h-14 2xl:w-72 text-lg xl:text-xl" variant="default">
               Browse Image
             </Button>
           </div>
         </>
       ) : (
-        <div className="flex flex-col gap-5">
+        <div className="flex flex-col gap-5 xl:gap-6">
           <input ref={inputRef} type="file" accept={ACCEPTED} className="sr-only" onChange={onFileChange} />
 
           {/* Comparison slider with zoom controls */}
           <div className="flex flex-col gap-2">
             <div className="flex items-center justify-between">
-              <p className="text-sm text-muted-foreground">Drag the slider to compare</p>
+              <p className="text-sm xl:text-base text-muted-foreground">Drag the slider to compare</p>
               <div className="flex items-center gap-1">
                 {zoom !== 1 && (
                   <button
                     onClick={() => setZoom(1)}
-                    className="h-7 w-7 flex items-center justify-center rounded-md border border-border hover:bg-accent transition-colors"
+                    className="h-7 w-7 xl:h-8 xl:w-8 flex items-center justify-center rounded-md border border-border hover:bg-accent transition-colors"
                     title="Reset zoom"
                   >
-                    <Maximize2 className="size-3.5" />
+                    <Maximize2 className="size-3.5 xl:size-4" />
                   </button>
                 )}
                 <button
                   onClick={() => setZoom(z => Math.max(1, +(z - 0.25).toFixed(2)))}
                   disabled={zoom <= 1}
-                  className="h-7 w-7 flex items-center justify-center rounded-md border border-border hover:bg-accent disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                  className="h-7 w-7 xl:h-8 xl:w-8 flex items-center justify-center rounded-md border border-border hover:bg-accent disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
                   title="Zoom out"
                 >
-                  <ZoomOut className="size-3.5" />
+                  <ZoomOut className="size-3.5 xl:size-4" />
                 </button>
-                <span className="text-xs text-muted-foreground w-10 text-center tabular-nums">{Math.round(zoom * 100)}%</span>
+                <span className="text-xs xl:text-sm text-muted-foreground w-10 text-center tabular-nums">{Math.round(zoom * 100)}%</span>
                 <button
                   onClick={() => setZoom(z => Math.min(4, +(z + 0.25).toFixed(2)))}
                   disabled={zoom >= 4}
-                  className="h-7 w-7 flex items-center justify-center rounded-md border border-border hover:bg-accent disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                  className="h-7 w-7 xl:h-8 xl:w-8 flex items-center justify-center rounded-md border border-border hover:bg-accent disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
                   title="Zoom in"
                 >
-                  <ZoomIn className="size-3.5" />
+                  <ZoomIn className="size-3.5 xl:size-4" />
                 </button>
               </div>
             </div>
@@ -239,10 +239,10 @@ export default function ImageCompression() {
                   dragOver ? "border-primary/60 bg-accent/60" : "border-border hover:border-primary/50 hover:bg-accent/50"
                 )}
               >
-                <img src={imageSrc} className="h-9 w-9 object-cover rounded-lg shrink-0" />
+                <img src={imageSrc} className="h-9 w-9 xl:h-10 xl:w-10 object-cover rounded-lg shrink-0" />
                 <div>
-                  <p className="text-xs font-medium truncate w-36">{imageName}</p>
-                  <p className="text-[10px] text-muted-foreground mt-0.5">Click or drop to change</p>
+                  <p className="text-xs xl:text-sm font-medium truncate w-36">{imageName}</p>
+                  <p className="text-[10px] xl:text-xs text-muted-foreground mt-0.5">Click or drop to change</p>
                 </div>
               </div>
               <div className="flex gap-1">
@@ -251,7 +251,7 @@ export default function ImageCompression() {
                     key={f.id}
                     onClick={() => setFormat(f.id)}
                     className={cn(
-                      "flex-1 py-1.5 text-xs rounded-md border transition-colors cursor-pointer",
+                      "flex-1 py-1.5 xl:py-2 text-xs xl:text-sm rounded-md border transition-colors cursor-pointer",
                       format === f.id ? "bg-primary text-primary-foreground border-primary" : "border-border hover:bg-accent"
                     )}
                   >
@@ -265,20 +265,20 @@ export default function ImageCompression() {
             <div className="flex flex-col justify-between grow gap-4">
               <div className='flex flex-col gap-1.5'>
                 <div className="flex items-center justify-between">
-                  <Label className="text-xs text-muted-foreground">Quality</Label>
-                  <span className="text-xs font-medium">{quality}%</span>
+                  <Label className="text-xs xl:text-sm text-muted-foreground">Quality</Label>
+                  <span className="text-xs xl:text-sm font-medium">{quality}%</span>
                 </div>
                 <input
                   type="range" min={1} max={100} value={quality}
                   onChange={e => setQuality(Number(e.target.value))}
                   className="w-full accent-primary"
                 />
-                <div className="flex justify-between text-[10px] text-muted-foreground">
+                <div className="flex justify-between text-[10px] xl:text-xs text-muted-foreground">
                   <span>Smaller</span><span>Better</span>
                 </div>
               </div>
               {originalSize && (
-                <div className="flex flex-col gap-1 mt-1 text-xs">
+                <div className="flex flex-col gap-1 mt-1 text-xs xl:text-sm">
                   <div className="flex justify-between gap-4">
                     <span className="text-muted-foreground">Original</span>
                     <span className="font-medium">{formatBytes(originalSize)}</span>
@@ -301,12 +301,12 @@ export default function ImageCompression() {
 
             {/* Col 3: download (gated when out of token budget) */}
             {atLimit ? (
-              <Button onClick={() => navigate('/pricing')} className="shrink-0" size="sm">
+              <Button onClick={() => navigate('/pricing')} className="shrink-0 xl:text-sm xl:h-9" size="sm">
                 Upgrade to Pro
               </Button>
             ) : (
-              <Button onClick={download} disabled={encoding} className="gap-1.5 shrink-0" size="sm">
-                <Download className="size-3.5" />
+              <Button onClick={download} disabled={encoding} className="gap-1.5 shrink-0 xl:text-sm xl:h-9" size="sm">
+                <Download className="size-3.5 xl:size-4" />
                 Download
               </Button>
             )}

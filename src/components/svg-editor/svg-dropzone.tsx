@@ -56,19 +56,19 @@ export default function SvgDropzone({ onSvg }: Props) {
                     onDragOver={e => e.preventDefault()}
                     onDragEnter={() => setDragging(true)}
                     onDragLeave={() => setDragging(false)}
-                    className={`flex flex-col items-center justify-center py-10 w-full h-90 border border-dashed border-border rounded-3xl transition-colors gap-4 cursor-pointer ${dragging ? 'bg-accent border-primary' : 'hover:border-primary'}`}
+                    className={`flex flex-col items-center justify-center py-10 xl:py-12 w-full h-90 xl:h-100 2xl:h-108 border border-dashed border-border rounded-3xl transition-colors gap-4 xl:gap-5 cursor-pointer ${dragging ? 'bg-accent border-primary' : 'hover:border-primary'}`}
                 >
-                    <Button onClick={() => inputRef.current?.click()} variant="outline" className="w-20 h-20 border-border hover:border-primary transition-colors">
-                        <Import className="size-10 stroke-primary" />
+                    <Button onClick={() => inputRef.current?.click()} variant="outline" className="w-20 h-20 xl:w-22 xl:h-22 2xl:w-24 2xl:h-24 border-border hover:border-primary transition-colors">
+                        <Import className="size-10 xl:size-11 2xl:size-12 stroke-primary" />
                     </Button>
                     <div className="text-center">
-                        <h2 className="text-xl font-body font-semibold text-foreground">Drop an SVG file here</h2>
-                        <p className="text-sm text-muted-foreground mt-1">or browse to upload</p>
+                        <h2 className="text-xl xl:text-2xl font-body font-semibold text-foreground">Drop an SVG file here</h2>
+                        <p className="text-sm xl:text-base text-muted-foreground mt-1">or browse to upload</p>
                     </div>
                     <Button
                         type="button"
                         variant="default"
-                        className="h-10 w-48"
+                        className="h-10 w-48 xl:h-11 xl:w-52 2xl:h-12 2xl:w-56"
                         onClick={() => inputRef.current?.click()}
                     >
                         Browse SVG
@@ -77,7 +77,7 @@ export default function SvgDropzone({ onSvg }: Props) {
             </form>
 
             <div className="flex flex-col gap-2">
-                <p className="text-sm text-muted-foreground">Or paste SVG code</p>
+                <p className="text-sm xl:text-base text-muted-foreground">Or paste SVG code</p>
                 <textarea
                     value={paste}
                     onChange={e => {
@@ -87,7 +87,7 @@ export default function SvgDropzone({ onSvg }: Props) {
                     }}
                     placeholder="<svg xmlns=..."
                     rows={5}
-                    className="w-full rounded-xl border border-border bg-background text-sm text-foreground font-mono p-3 resize-none focus:outline-none focus:border-primary transition-colors"
+                    className="w-full rounded-xl border border-border bg-background text-sm xl:text-base text-foreground font-mono p-3 resize-none focus:outline-none focus:border-primary transition-colors"
                 />
                 <Button
                     onClick={handleLoad}

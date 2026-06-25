@@ -50,8 +50,8 @@ function CopyButton({ text }: { text: string }) {
         setTimeout(() => setCopied(false), 1500)
     }
     return (
-        <Button variant="ghost" size="icon" className="h-7 w-7 shrink-0" onClick={copy}>
-            {copied ? <Check className="size-3.5 text-primary" /> : <Copy className="size-3.5" />}
+        <Button variant="ghost" size="icon" className="h-7 w-7 xl:h-8 xl:w-8 shrink-0" onClick={copy}>
+            {copied ? <Check className="size-3.5 xl:size-4 text-primary" /> : <Copy className="size-3.5 xl:size-4" />}
         </Button>
     )
 }
@@ -60,13 +60,13 @@ function DataUriRow({ label, value }: { label: string; value: string }) {
     return (
         <div className="flex flex-col gap-1.5">
             <div className="flex items-center justify-between">
-                <span className="text-xs font-medium text-foreground">{label}</span>
+                <span className="text-xs xl:text-sm font-medium text-foreground">{label}</span>
                 <div className="flex items-center gap-2">
-                    <span className="text-xs text-muted-foreground">{byteSize(value)}</span>
+                    <span className="text-xs xl:text-sm text-muted-foreground">{byteSize(value)}</span>
                     <CopyButton text={value} />
                 </div>
             </div>
-            <div className="pointer-events-none rounded-lg border border-border bg-muted/40 p-2.5 font-mono text-xs text-muted-foreground break-all line-clamp-3 select-all">
+            <div className="pointer-events-none rounded-lg border border-border bg-muted/40 p-2.5 font-mono text-xs xl:text-sm text-muted-foreground break-all line-clamp-3 select-all">
                 {value}
             </div>
         </div>
@@ -202,18 +202,18 @@ export default function SvgEditor() {
 
     if (!code) {
         return (
-            <section className="section py-8">
-                <div className="mb-6 flex items-start justify-between gap-4">
+            <section className="section py-8 xl:py-10 2xl:py-12">
+                <div className="mb-6 xl:mb-7 2xl:mb-8 flex items-start justify-between gap-4">
                     <div>
-                        <h2 className="text-2xl font-body font-semibold text-foreground">SVG Editor</h2>
-                        <p className="text-sm text-muted-foreground mt-1">
+                        <h2 className="text-2xl xl:text-3xl font-body font-semibold text-foreground">SVG Editor</h2>
+                        <p className="text-sm xl:text-base text-muted-foreground mt-1">
                             Edit, optimize, and preview SVGs - export as React, Vue, Angular, or data URIs.
                         </p>
                     </div>
                     {metered && (
                         <div className="flex items-start gap-2.5 rounded-xl border border-primary/30 bg-primary/5 px-3.5 py-2.5 max-w-xs shrink-0">
-                            <Info className="size-4 text-primary shrink-0 mt-0.5" />
-                            <p className="text-xs text-muted-foreground">
+                            <Info className="size-4 xl:size-5 text-primary shrink-0 mt-0.5" />
+                            <p className="text-xs xl:text-sm text-muted-foreground">
                                 Each download costs <span className="font-medium text-foreground">{cost} token{cost === 1 ? '' : 's'}</span>. Editing and copying are free.
                             </p>
                         </div>
@@ -225,23 +225,23 @@ export default function SvgEditor() {
     }
 
     return (
-        <section className="section py-8">
-            <div className="mb-6 flex items-start justify-between gap-4">
+        <section className="section py-8 xl:py-10 2xl:py-12">
+            <div className="mb-6 xl:mb-7 2xl:mb-8 flex items-start justify-between gap-4">
                 <div>
-                    <h2 className="text-2xl font-body font-semibold text-foreground">SVG Editor</h2>
-                    <p className="text-sm text-muted-foreground mt-1">
+                    <h2 className="text-2xl xl:text-3xl font-body font-semibold text-foreground">SVG Editor</h2>
+                    <p className="text-sm xl:text-base text-muted-foreground mt-1">
                         Edit, optimize, and preview SVGs - export as React, Vue, Angular, or data URIs.
                     </p>
                 </div>
                 <div className="flex items-start gap-2.5 shrink-0">
-                    <Button variant="outline" size="sm" onClick={() => setCode(null)}>
-                        <RotateCcw className="size-3.5 mr-1.5" />
+                    <Button variant="outline" size="sm" className="xl:text-sm xl:h-9" onClick={() => setCode(null)}>
+                        <RotateCcw className="size-3.5 xl:size-4 mr-1.5" />
                         New SVG
                     </Button>
                     {metered && (
                         <div className="flex items-start gap-2.5 rounded-xl border border-primary/30 bg-primary/5 px-3.5 py-2.5 max-w-xs">
-                            <Info className="size-4 text-primary shrink-0 mt-0.5" />
-                            <p className="text-xs text-muted-foreground">
+                            <Info className="size-4 xl:size-5 text-primary shrink-0 mt-0.5" />
+                            <p className="text-xs xl:text-sm text-muted-foreground">
                                 Each download costs <span className="font-medium text-foreground">{cost} token{cost === 1 ? '' : 's'}</span>. Editing and copying are free.
                             </p>
                         </div>
@@ -249,19 +249,19 @@ export default function SvgEditor() {
                 </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-4 h-140">
+            <div className="grid grid-cols-2 gap-4 xl:gap-5 h-140 xl:h-160 2xl:h-180">
                 {/* Left: CodeMirror editor */}
                 <div className="flex flex-col gap-2 min-h-0">
                     <div className="flex items-center justify-between">
                         <div className="flex items-center gap-2">
-                            <span className="text-xs text-muted-foreground font-medium">Source</span>
-                            <span className="text-xs text-muted-foreground">{fileSize}</span>
+                            <span className="text-xs xl:text-sm text-muted-foreground font-medium">Source</span>
+                            <span className="text-xs xl:text-sm text-muted-foreground">{fileSize}</span>
                         </div>
                         <div className="flex items-center gap-2">
                             <Button
                                 variant="outline"
                                 size="sm"
-                                className="h-7 text-xs"
+                                className="h-7 xl:h-8 text-xs xl:text-sm"
                                 onClick={() => setCode(prettifySvg(activeCode))}
                             >
                                 Prettify
@@ -269,7 +269,7 @@ export default function SvgEditor() {
                             <Button
                                 variant="outline"
                                 size="sm"
-                                className="h-7 text-xs"
+                                className="h-7 xl:h-8 text-xs xl:text-sm"
                                 onClick={() => setCode(optimizedCode)}
                                 disabled={savings <= 0}
                             >
@@ -278,11 +278,11 @@ export default function SvgEditor() {
                             <Button
                                 variant="ghost"
                                 size="icon"
-                                className="h-7 w-7 shrink-0"
+                                className="h-7 w-7 xl:h-8 xl:w-8 shrink-0"
                                 title="Download SVG"
                                 onClick={handleDownload}
                             >
-                                <Download className="size-3.5" />
+                                <Download className="size-3.5 xl:size-4" />
                             </Button>
                             <CopyButton text={activeCode} />
                         </div>
@@ -301,7 +301,7 @@ export default function SvgEditor() {
                                 key={t}
                                 onClick={() => setTab(t)}
                                 className={cn(
-                                    'px-3 py-1 text-xs rounded-md transition-colors',
+                                    'px-3 py-1 text-xs xl:text-sm rounded-md transition-colors',
                                     tab === t
                                         ? 'bg-primary text-primary-foreground'
                                         : 'text-muted-foreground hover:text-foreground hover:bg-accent'
@@ -318,12 +318,12 @@ export default function SvgEditor() {
                             <div className="flex items-center justify-between">
                                 <div className="flex items-center gap-3">
                                     {meta.viewBox && (
-                                        <span className="text-xs text-muted-foreground">
+                                        <span className="text-xs xl:text-sm text-muted-foreground">
                                             <span className="text-foreground/50 mr-1">viewBox</span>{meta.viewBox}
                                         </span>
                                     )}
                                     {(meta.width || meta.height) && (
-                                        <span className="text-xs text-muted-foreground">
+                                        <span className="text-xs xl:text-sm text-muted-foreground">
                                             <span className="text-foreground/50 mr-1">size</span>
                                             {meta.width ?? '?'} × {meta.height ?? '?'}
                                         </span>
@@ -331,7 +331,7 @@ export default function SvgEditor() {
                                 </div>
                                 <div className="flex items-center gap-2" data-color-picker>
                                     {selectedColorInfo && (
-                                        <div className='h-7'>
+                                        <div className='h-7 xl:h-8'>
                                             <ColorPicker
                                                 value={pickerColor}
                                                 onChange={c => handleColorChange(c.slice(0, 7))}
@@ -344,7 +344,7 @@ export default function SvgEditor() {
                                             title={opt.label}
                                             onClick={() => setBg(opt.value)}
                                             className={cn(
-                                                'h-7 w-7 rounded-md border-2 transition-colors',
+                                                'h-7 w-7 xl:h-8 xl:w-8 rounded-md border-2 transition-colors',
                                                 opt.class,
                                                 bg === opt.value ? 'border-primary' : 'border-border'
                                             )}
@@ -377,7 +377,7 @@ export default function SvgEditor() {
                                     items={CODE_FORMAT_OPTIONS.map(o => o.value)}
                                     filter={null}
                                 >
-                                    <ComboboxInput className="w-36! h-8! [&_input]:select-none!" readOnly />
+                                    <ComboboxInput className="w-36! h-8! xl:h-9! [&_input]:select-none!" readOnly />
                                     <ComboboxContent>
                                         <ComboboxList>
                                             {(item) => (
@@ -390,7 +390,7 @@ export default function SvgEditor() {
                                 </Combobox>
                                 <CopyButton text={displayCode} />
                             </div>
-                            <pre className="flex-1 min-h-0 rounded-xl border border-border bg-muted/30 p-3 text-xs font-mono text-foreground overflow-auto whitespace-pre-wrap break-all">
+                            <pre className="flex-1 min-h-0 rounded-xl border border-border bg-muted/30 p-3 text-xs xl:text-sm font-mono text-foreground overflow-auto whitespace-pre-wrap break-all">
                                 {displayCode}
                             </pre>
                         </div>

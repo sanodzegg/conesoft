@@ -217,23 +217,23 @@ export default function PaletteExtractor() {
   }
 
   return (
-    <section className="section py-8">
-      <div className="mb-6 flex items-start justify-between gap-4">
+    <section className="section py-8 xl:py-10 2xl:py-12">
+      <div className="mb-6 xl:mb-7 2xl:mb-8 flex items-start justify-between gap-4">
         <div>
-          <h2 className="text-2xl font-body font-semibold text-foreground">Palette Extractor</h2>
-          <p className="text-sm text-muted-foreground mt-1">Extract dominant colors from any image.</p>
+          <h2 className="text-2xl xl:text-3xl font-body font-semibold text-foreground">Palette Extractor</h2>
+          <p className="text-sm xl:text-base text-muted-foreground mt-1">Extract dominant colors from any image.</p>
         </div>
         <div className="flex items-start gap-2.5 shrink-0">
           {imageSrc && (
-            <Button variant="outline" size="sm" onClick={reset} className="gap-1.5 shrink-0">
-              <RotateCcw className="size-3.5" />
+            <Button variant="outline" size="sm" onClick={reset} className="gap-1.5 shrink-0 xl:text-sm xl:h-9">
+              <RotateCcw className="size-3.5 xl:size-4" />
               Reset
             </Button>
           )}
           {metered && (
             <div className="flex items-start gap-2.5 rounded-xl border border-primary/30 bg-primary/5 px-3.5 py-2.5 max-w-xs">
-              <Info className="size-4 text-primary shrink-0 mt-0.5" />
-              <p className="text-xs text-muted-foreground">
+              <Info className="size-4 xl:size-5 text-primary shrink-0 mt-0.5" />
+              <p className="text-xs xl:text-sm text-muted-foreground">
                 Each download costs <span className="font-medium text-foreground">{cost} token{cost === 1 ? '' : 's'}</span>. Extracting and copying colors are free.
               </p>
             </div>
@@ -250,34 +250,34 @@ export default function PaletteExtractor() {
             onDragOver={e => { e.preventDefault(); setDragOver(true) }}
             onDragLeave={e => { if (!dropzoneRef.current?.contains(e.relatedTarget as Node)) setDragOver(false) }}
             className={cn(
-              "flex flex-col items-center justify-center py-10 w-full h-90 border border-border hover:border-primary rounded-3xl border-dashed transition-colors cursor-pointer gap-4",
+              "flex flex-col items-center justify-center py-10 xl:py-12 w-full h-90 xl:h-100 2xl:h-108 border border-border hover:border-primary rounded-3xl border-dashed transition-colors cursor-pointer gap-4 xl:gap-5",
               dragOver && "bg-accent"
             )}
           >
-            <Button onClick={() => inputRef.current?.click()} variant="outline" className="w-20 h-20 border-border hover:border-primary transition-colors">
-              <Import className="size-10 stroke-primary" />
+            <Button onClick={() => inputRef.current?.click()} variant="outline" className="w-20 h-20 xl:w-22 xl:h-22 2xl:w-24 2xl:h-24 border-border hover:border-primary transition-colors">
+              <Import className="size-10 xl:size-11 2xl:size-12 stroke-primary" />
             </Button>
             <div className="text-center">
-              <h2 className="text-2xl font-body font-semibold text-foreground">Drop an image here</h2>
+              <h2 className="text-2xl xl:text-3xl font-body font-semibold text-foreground">Drop an image here</h2>
             </div>
             <div className="flex items-center justify-center flex-wrap gap-2">
               {ACCEPTED_EXT.map(ext => (
-                <Badge variant="secondary" key={ext} className="rounded-sm p-3 text-sm font-light text-primary">{ext}</Badge>
+                <Badge variant="secondary" key={ext} className="rounded-sm p-3 xl:p-3.5 text-sm xl:text-base font-light text-primary">{ext}</Badge>
               ))}
             </div>
-            <Button onClick={() => inputRef.current?.click()} className="bg-primary h-12 w-60 text-lg" variant="default">
+            <Button onClick={() => inputRef.current?.click()} className="bg-primary h-12 w-60 xl:h-13 xl:w-66 2xl:h-14 2xl:w-72 text-lg xl:text-xl" variant="default">
               Browse Image
             </Button>
           </div>
         </>
       ) : (
-        <div className="flex gap-6">
+        <div className="flex gap-6 xl:gap-7">
           {/* Left: controls */}
-          <div className="w-64 shrink-0 space-y-5">
+          <div className="w-64 xl:w-72 shrink-0 space-y-5 xl:space-y-6">
             <input ref={inputRef} type="file" accept={ACCEPTED} className="sr-only" onChange={onFileChange} />
 
             <div className="space-y-1.5">
-              <Label className="text-xs text-muted-foreground">Image</Label>
+              <Label className="text-xs xl:text-sm text-muted-foreground">Image</Label>
               <div
                 onClick={() => inputRef.current?.click()}
                 onDrop={onDrop}
@@ -288,37 +288,37 @@ export default function PaletteExtractor() {
                   dragOver ? "border-primary/60 bg-accent/60" : "border-border hover:border-primary/50 hover:bg-accent/50"
                 )}
               >
-                <img src={imageSrc} className="w-full h-28 object-cover rounded-lg" />
-                <p className="text-[10px] text-muted-foreground truncate w-full">{imageName}</p>
-                <p className="text-[10px] text-muted-foreground">Click or drop to change</p>
+                <img src={imageSrc} className="w-full h-28 xl:h-32 object-cover rounded-lg" />
+                <p className="text-[10px] xl:text-xs text-muted-foreground truncate w-full">{imageName}</p>
+                <p className="text-[10px] xl:text-xs text-muted-foreground">Click or drop to change</p>
               </div>
             </div>
 
             <div className="space-y-2">
               <div className="flex items-center justify-between">
-                <Label className="text-xs text-muted-foreground">Colors</Label>
-                <span className="text-xs font-medium">{colorCount}</span>
+                <Label className="text-xs xl:text-sm text-muted-foreground">Colors</Label>
+                <span className="text-xs xl:text-sm font-medium">{colorCount}</span>
               </div>
               <input
                 type="range" min={2} max={12} value={colorCount}
                 onChange={e => setColorCount(Number(e.target.value))}
                 className="w-full accent-primary"
               />
-              <div className="flex justify-between text-[10px] text-muted-foreground">
+              <div className="flex justify-between text-[10px] xl:text-xs text-muted-foreground">
                 <span>2</span><span>12</span>
               </div>
             </div>
 
-            <Button onClick={extract} disabled={loading} className="w-full gap-1.5" size="sm">
+            <Button onClick={extract} disabled={loading} className="w-full gap-1.5 xl:text-sm xl:h-9" size="sm">
               {loading
-                ? <><Loader2 className="size-3.5 animate-spin" /> Extracting…</>
-                : <><Pipette className="size-3.5" /> Extract Palette</>
+                ? <><Loader2 className="size-3.5 xl:size-4 animate-spin" /> Extracting…</>
+                : <><Pipette className="size-3.5 xl:size-4" /> Extract Palette</>
               }
             </Button>
 
             {palette.length > 0 && (
               <div className="space-y-2">
-                <Label className="text-xs text-muted-foreground">Export as</Label>
+                <Label className="text-xs xl:text-sm text-muted-foreground">Export as</Label>
                 <div className="space-y-1">
                   {EXPORT_OPTIONS.map(opt => (
                     <button
@@ -332,15 +332,15 @@ export default function PaletteExtractor() {
                       )}
                     >
                       <div>
-                        <p className="text-xs font-medium leading-none mb-0.5">{opt.label}</p>
-                        <p className="text-[10px] text-muted-foreground font-mono">{opt.description}</p>
+                        <p className="text-xs xl:text-sm font-medium leading-none mb-0.5">{opt.label}</p>
+                        <p className="text-[10px] xl:text-xs text-muted-foreground font-mono">{opt.description}</p>
                       </div>
-                      {exportFormat === opt.id && <Check className="size-3.5 shrink-0" />}
+                      {exportFormat === opt.id && <Check className="size-3.5 xl:size-4 shrink-0" />}
                     </button>
                   ))}
                 </div>
-                <Button onClick={handleExport} variant="outline" className="w-full gap-1.5" size="sm">
-                  <Download className="size-3.5" />
+                <Button onClick={handleExport} variant="outline" className="w-full gap-1.5 xl:text-sm xl:h-9" size="sm">
+                  <Download className="size-3.5 xl:size-4" />
                   Download
                 </Button>
               </div>
@@ -350,42 +350,42 @@ export default function PaletteExtractor() {
           {/* Right: palette */}
           <div className="flex-1 min-w-0">
             {loading ? (
-              <div className="rounded-xl border border-dashed border-border p-6 flex flex-col items-center justify-center gap-3 text-center h-64">
-                <Loader2 className="size-8 text-muted-foreground animate-spin" />
-                <p className="text-sm text-muted-foreground">Extracting colors…</p>
+              <div className="rounded-xl border border-dashed border-border p-6 flex flex-col items-center justify-center gap-3 text-center h-64 xl:h-72">
+                <Loader2 className="size-8 xl:size-9 text-muted-foreground animate-spin" />
+                <p className="text-sm xl:text-base text-muted-foreground">Extracting colors…</p>
               </div>
             ) : palette.length > 0 ? (
               <div className="space-y-3">
-                <p className="text-sm text-muted-foreground">{palette.length} colors · click a value to copy</p>
-                <div className="grid grid-cols-2 gap-3">
+                <p className="text-sm xl:text-base text-muted-foreground">{palette.length} colors · click a value to copy</p>
+                <div className="grid grid-cols-2 gap-3 xl:gap-4">
                   {palette.map((color, i) => {
                     const hex = toHex(color)
                     const rgb = `rgb(${color[0]}, ${color[1]}, ${color[2]})`
                     return (
                       <div key={i} className="rounded-xl overflow-hidden border border-border">
-                        <div className="h-20 w-full" style={{ backgroundColor: hex }} />
-                        <div className="p-3 space-y-1 bg-secondary/30">
+                        <div className="h-20 xl:h-24 w-full" style={{ backgroundColor: hex }} />
+                        <div className="p-3 xl:p-4 space-y-1 bg-secondary/30">
                           <button
                             onClick={() => copyColor(hex)}
                             className="w-full flex items-center justify-between gap-2 text-left group rounded px-2 py-1 hover:bg-accent transition-colors"
                           >
                             <div className="flex items-center gap-2">
-                              <div className="size-3 rounded-sm shrink-0 border border-border/50" style={{ backgroundColor: hex }} />
-                              <span className="text-xs font-mono font-medium">{hex}</span>
+                              <div className="size-3 xl:size-3.5 rounded-sm shrink-0 border border-border/50" style={{ backgroundColor: hex }} />
+                              <span className="text-xs xl:text-sm font-mono font-medium">{hex}</span>
                             </div>
                             {copied === hex
-                              ? <Check className="size-3 text-green-500 shrink-0" />
-                              : <Copy className="size-3 text-muted-foreground shrink-0 opacity-0 group-hover:opacity-100 transition-opacity" />
+                              ? <Check className="size-3 xl:size-3.5 text-green-500 shrink-0" />
+                              : <Copy className="size-3 xl:size-3.5 text-muted-foreground shrink-0 opacity-0 group-hover:opacity-100 transition-opacity" />
                             }
                           </button>
                           <button
                             onClick={() => copyColor(rgb)}
                             className="w-full flex items-center justify-between gap-2 text-left group rounded px-2 py-1 hover:bg-accent transition-colors"
                           >
-                            <span className="text-[11px] text-muted-foreground font-mono">{rgb}</span>
+                            <span className="text-[11px] xl:text-xs text-muted-foreground font-mono">{rgb}</span>
                             {copied === rgb
-                              ? <Check className="size-3 text-green-500 shrink-0" />
-                              : <Copy className="size-3 text-muted-foreground shrink-0 opacity-0 group-hover:opacity-100 transition-opacity" />
+                              ? <Check className="size-3 xl:size-3.5 text-green-500 shrink-0" />
+                              : <Copy className="size-3 xl:size-3.5 text-muted-foreground shrink-0 opacity-0 group-hover:opacity-100 transition-opacity" />
                             }
                           </button>
                         </div>
@@ -395,9 +395,9 @@ export default function PaletteExtractor() {
                 </div>
               </div>
             ) : (
-              <div className="rounded-xl border border-dashed border-border p-6 flex flex-col items-center justify-center gap-3 text-center h-64">
-                <Pipette className="size-8 text-muted-foreground" />
-                <p className="text-sm text-muted-foreground">Click Extract Palette to analyze colors</p>
+              <div className="rounded-xl border border-dashed border-border p-6 flex flex-col items-center justify-center gap-3 text-center h-64 xl:h-72">
+                <Pipette className="size-8 xl:size-9 text-muted-foreground" />
+                <p className="text-sm xl:text-base text-muted-foreground">Click Extract Palette to analyze colors</p>
               </div>
             )}
           </div>

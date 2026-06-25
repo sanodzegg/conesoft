@@ -116,23 +116,23 @@ export default function ConvertedFiles() {
     }
 
     return (
-        <section className="py-6 2xl:py-8">
-            <div className="flex items-center justify-between mb-4 2xl:mb-6">
-                <h3 className="font-medium text-primary font-body text-base 2xl:text-lg">
+        <section className="py-6 xl:py-7 2xl:py-8">
+            <div className="flex items-center justify-between mb-4 xl:mb-5 2xl:mb-6">
+                <h3 className="font-medium text-primary font-body text-base xl:text-lg">
                     Converted ({snapshot.length}){failedEntries.length > 0 && <span className="text-destructive ml-2">· {failedEntries.length} failed</span>}
                 </h3>
                 <div className="flex items-center gap-x-2">
                     <Button onClick={downloadAll} disabled={!isDone || isZipping} variant={'secondary'} className={'group p-2.5! h-full!'}>
-                        {isZipping ? <Loader2 className="size-5 2xl:size-6 animate-spin" /> : <Download className="size-5 2xl:size-6" />}
+                        {isZipping ? <Loader2 className="size-5 xl:size-6 animate-spin" /> : <Download className="size-5 xl:size-6" />}
                     </Button>
                     <Tooltip>
                         <TooltipTrigger>
                             <Button onClick={resetAppState} disabled={isConverting} variant={'secondary'} className={'group p-2.5! h-full!'}>
-                                <RefreshCcw className="size-5 2xl:size-6 group-hover:animate-spin-once" />
+                                <RefreshCcw className="size-5 xl:size-6 group-hover:animate-spin-once" />
                             </Button>
                         </TooltipTrigger>
                         <TooltipContent>
-                            <p className="text-sm 2xl:text-base font-light text-accent">{isConverting ? 'Wait for conversions to finish' : 'Start over'}</p>
+                            <p className="text-sm xl:text-base font-light text-accent">{isConverting ? 'Wait for conversions to finish' : 'Start over'}</p>
                         </TooltipContent>
                     </Tooltip>
                 </div>
@@ -144,30 +144,30 @@ export default function ConvertedFiles() {
                             {virtualizer.getVirtualItems().map((row) => {
                                 const f = snapshot[row.index]
                                 return (
-                                    <li key={`${f.name}-${f.inputSize}`} style={{ position: 'absolute', top: row.start, left: 0, right: 0, paddingBottom: ITEM_GAP }} className="flex items-center justify-between p-4 2xl:p-5 rounded-2xl border border-accent bg-secondary/30">
+                                    <li key={`${f.name}-${f.inputSize}`} style={{ position: 'absolute', top: row.start, left: 0, right: 0, paddingBottom: ITEM_GAP }} className="flex items-center justify-between p-4 xl:p-5 rounded-2xl border border-accent bg-secondary/30">
                                         <div className="flex items-start gap-4 min-w-0">
                                             <Tooltip>
                                                 <TooltipTrigger className="flex-1 min-w-0 text-left">
-                                                    <span className="text-sm 2xl:text-base text-accent-foreground font-body truncate cursor-default block w-full">{f.name}</span>
-                                                    <span className="text-xs 2xl:text-sm text-accent-foreground/50 font-body">{formatBytes(f.blob.size)}</span>
+                                                    <span className="text-sm xl:text-base text-accent-foreground font-body truncate cursor-default block w-full">{f.name}</span>
+                                                    <span className="text-xs xl:text-sm text-accent-foreground/50 font-body">{formatBytes(f.blob.size)}</span>
                                                 </TooltipTrigger>
-                                                <TooltipContent><p className="text-sm 2xl:text-base">{f.name}</p></TooltipContent>
+                                                <TooltipContent><p className="text-sm xl:text-base">{f.name}</p></TooltipContent>
                                             </Tooltip>
                                             {f.customized && (
-                                                <span className="shrink-0 text-xs 2xl:text-sm font-medium px-1.5 py-0.5 rounded-md bg-yellow-400/20 text-yellow-600 dark:text-yellow-400 border border-yellow-400/30">
+                                                <span className="shrink-0 text-xs xl:text-sm font-medium px-1.5 py-0.5 rounded-md bg-yellow-400/20 text-yellow-600 dark:text-yellow-400 border border-yellow-400/30">
                                                     Modified
                                                 </span>
                                             )}
                                         </div>
                                         <div className="flex items-center gap-2 ml-2 shrink-0">
                                             {f.autoSaved ? (
-                                                <span className="flex items-center gap-1 text-xs 2xl:text-sm font-medium px-2.5 py-1.5 rounded-xl bg-green-500/10 text-green-600 dark:text-green-400 border border-green-500/20">
+                                                <span className="flex items-center gap-1 text-xs xl:text-sm font-medium px-2.5 py-1.5 rounded-xl bg-green-500/10 text-green-600 dark:text-green-400 border border-green-500/20">
                                                     <Check className="size-3.5" />
                                                     Saved
                                                 </span>
                                             ) : (
-                                                <Button variant="secondary" onClick={() => handleDownload(f.blob, f.name)} className="text-xs 2xl:text-sm text-primary">
-                                                    <Download className="size-3.5 2xl:size-4 mr-1" />
+                                                <Button variant="secondary" onClick={() => handleDownload(f.blob, f.name)} className="text-xs xl:text-sm text-primary">
+                                                    <Download className="size-3.5 xl:size-4 mr-1" />
                                                     Download
                                                 </Button>
                                             )}
@@ -178,32 +178,32 @@ export default function ConvertedFiles() {
                         </ul>
                     </div>
                 ) : (
-                    <ul className="space-y-2.5 2xl:space-y-3">
+                    <ul className="space-y-2.5 xl:space-y-3">
                         {snapshot.map((f) => (
-                            <li key={`${f.name}-${f.inputSize}`} className="flex items-center justify-between p-4 2xl:p-5 rounded-2xl border border-accent bg-secondary/30">
+                            <li key={`${f.name}-${f.inputSize}`} className="flex items-center justify-between p-4 xl:p-5 rounded-2xl border border-accent bg-secondary/30">
                                 <div className="flex items-start gap-4 min-w-0">
                                     <Tooltip>
                                         <TooltipTrigger className="flex-1 min-w-0 text-left">
-                                            <span className="text-sm 2xl:text-base text-accent-foreground font-body truncate cursor-default block w-full">{f.name}</span>
-                                            <span className="text-xs 2xl:text-sm text-accent-foreground/50 font-body">{formatBytes(f.blob.size)}</span>
+                                            <span className="text-sm xl:text-base text-accent-foreground font-body truncate cursor-default block w-full">{f.name}</span>
+                                            <span className="text-xs xl:text-sm text-accent-foreground/50 font-body">{formatBytes(f.blob.size)}</span>
                                         </TooltipTrigger>
-                                        <TooltipContent><p className="text-sm 2xl:text-base">{f.name}</p></TooltipContent>
+                                        <TooltipContent><p className="text-sm xl:text-base">{f.name}</p></TooltipContent>
                                     </Tooltip>
                                     {f.customized && (
-                                        <span className="shrink-0 text-xs 2xl:text-sm font-medium px-1.5 py-0.5 rounded-md bg-yellow-400/20 text-yellow-600 dark:text-yellow-400 border border-yellow-400/30">
+                                        <span className="shrink-0 text-xs xl:text-sm font-medium px-1.5 py-0.5 rounded-md bg-yellow-400/20 text-yellow-600 dark:text-yellow-400 border border-yellow-400/30">
                                             Modified
                                         </span>
                                     )}
                                 </div>
                                 <div className="flex items-center gap-2 ml-2 shrink-0">
                                     {f.autoSaved ? (
-                                        <span className="flex items-center gap-1 text-xs 2xl:text-sm font-medium px-2.5 py-1.5 rounded-xl bg-green-500/10 text-green-600 dark:text-green-400 border border-green-500/20">
+                                        <span className="flex items-center gap-1 text-xs xl:text-sm font-medium px-2.5 py-1.5 rounded-xl bg-green-500/10 text-green-600 dark:text-green-400 border border-green-500/20">
                                             <Check className="size-3.5" />
                                             Saved
                                         </span>
                                     ) : (
-                                        <Button variant="secondary" onClick={() => handleDownload(f.blob, f.name)} className="text-xs 2xl:text-sm text-primary">
-                                            <Download className="size-3.5 2xl:size-4 mr-1" />
+                                        <Button variant="secondary" onClick={() => handleDownload(f.blob, f.name)} className="text-xs xl:text-sm text-primary">
+                                            <Download className="size-3.5 xl:size-4 mr-1" />
                                             Download
                                         </Button>
                                     )}

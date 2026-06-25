@@ -41,18 +41,18 @@ export default function FaviconConversion() {
     const reset = () => setState({ status: 'idle' })
 
     return (
-        <section className="section py-8">
-            <div className="mb-6 flex items-start justify-between gap-4">
+        <section className="section py-8 xl:py-10 2xl:py-12">
+            <div className="mb-6 xl:mb-7 2xl:mb-8 flex items-start justify-between gap-4">
                 <div>
-                    <h2 className="text-2xl font-body font-semibold text-foreground">Favicon Generator</h2>
-                    <p className="text-sm text-muted-foreground mt-1">
+                    <h2 className="text-2xl xl:text-3xl font-body font-semibold text-foreground">Favicon Generator</h2>
+                    <p className="text-sm xl:text-base text-muted-foreground mt-1">
                         Upload any image and get the complete icon set - .ico, PNGs from 16 to 1024px, and macOS .icns.
                     </p>
                 </div>
                 {metered && (
                     <div className="flex items-start gap-2.5 rounded-xl border border-primary/30 bg-primary/5 px-3.5 py-2.5 max-w-xs shrink-0">
-                        <Info className="size-4 text-primary shrink-0 mt-0.5" />
-                        <p className="text-xs text-muted-foreground">
+                        <Info className="size-4 xl:size-5 text-primary shrink-0 mt-0.5" />
+                        <p className="text-xs xl:text-sm text-muted-foreground">
                             Each icon set costs <span className="font-medium text-foreground">{cost} token{cost === 1 ? '' : 's'}</span>, charged on your first download.
                         </p>
                     </div>
@@ -64,16 +64,16 @@ export default function FaviconConversion() {
             )}
 
             {state.status === 'converting' && (
-                <div className="flex flex-col items-center justify-center h-72 border border-border rounded-3xl border-dashed gap-4">
-                    <div className="size-10 rounded-full border-2 border-primary border-t-transparent animate-spin" />
-                    <p className="text-sm text-muted-foreground">Generating icons…</p>
+                <div className="flex flex-col items-center justify-center h-72 xl:h-80 2xl:h-90 border border-border rounded-3xl border-dashed gap-4 xl:gap-5">
+                    <div className="size-10 xl:size-11 2xl:size-12 rounded-full border-2 border-primary border-t-transparent animate-spin" />
+                    <p className="text-sm xl:text-base text-muted-foreground">Generating icons…</p>
                 </div>
             )}
 
             {state.status === 'error' && (
-                <div className="flex flex-col items-center justify-center h-72 border border-destructive/40 bg-destructive/5 rounded-3xl gap-3">
-                    <p className="text-sm text-destructive">{state.message}</p>
-                    <button onClick={reset} className="text-xs text-muted-foreground underline underline-offset-2">Try again</button>
+                <div className="flex flex-col items-center justify-center h-72 xl:h-80 2xl:h-90 border border-destructive/40 bg-destructive/5 rounded-3xl gap-3">
+                    <p className="text-sm xl:text-base text-destructive">{state.message}</p>
+                    <button onClick={reset} className="text-xs xl:text-sm text-muted-foreground underline underline-offset-2">Try again</button>
                 </div>
             )}
 
