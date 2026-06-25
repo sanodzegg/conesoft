@@ -82,6 +82,7 @@ supabase/
   migrations/                    - schema, plan-default fix, paddle fields
 
 scripts/install-browser.mjs      - installs Chromium into ./ms-playwright for bundling
+build/                           - app icons (icon.ico/icns/png, tray*) + appx/ Store tiles
 ```
 
 > **Stale-doc traps:** there is no `electron/main.js` (entry is root `main.js`) and no
@@ -347,6 +348,13 @@ is the single source of truth for "paid". See `TODO.md` #1.
   Versions are pinned to what the nested consumers need (e.g. `readable-stream@2`'s tree).
   **Do not "clean up" these as unused** - removing them breaks packaged builds. After any
   dependency change, re-verify the main-process require closure is fully present in the asar.
+- ⚠️ **sharp's platform binary must be a direct dep too.** `@img/sharp-win32-x64` lives in
+  `dependencies` for the same reason as the phantom deps above - electron-builder's collector
+  **drops sharp's nested optional `@img/*` binary**, and without it `require('sharp')` throws at
+  startup so the packaged app launches with **no window** (the throw is swallowed by `main.js`'s
+  `uncaughtException` handler). On Windows that one package is self-contained (libvips DLLs inside);
+  macOS needs the darwin binding **plus** a separate `@img/sharp-libvips-darwin-*` - see
+  `MAC_BUILD.md` (not yet declared). Bump it in lockstep with `sharp` on upgrade.
 - **Chromium is bundled** via `extraResources: ms-playwright` + `scripts/install-browser.mjs`
   (run by `package*`). At runtime, packaged mode sets
   `PLAYWRIGHT_BROWSERS_PATH = resources/ms-playwright` **before** requiring
@@ -354,8 +362,25 @@ is the single source of truth for "paid". See `TODO.md` #1.
   Adds ~150 MB per installer. **Verify on a clean machine after any packaging change.**
 - `package*` scripts gate on `tsc --noEmit` (the plain `vite build` does NOT typecheck -
   esbuild strips types).
-- Mac targets dmg+zip; Win target nsis. `postinstall` runs `electron-builder
-  install-app-deps` + ffmpeg-static install.
+- Mac targets dmg+zip; **Win targets `nsis` (standalone installer) + `appx` (Microsoft Store)**.
+  `postinstall` runs `electron-builder install-app-deps` + ffmpeg-static install.
+
+### Microsoft Store (appx)
+- Store package = electron-builder's **`appx`** target (⚠️ **not** `msix` - not a valid eb
+  target). A `--win` build emits `release/Conesoft <ver>.appx` beside the NSIS `.exe`.
+- `build.appx`: `identityName: Conlab.ConeLab`, `publisher: CN=2F9FE4F3-…`, `publisherDisplayName:
+  GS Works`, `applicationId: ConeLab`. The manifest **Publisher must exactly equal** the Partner
+  Center reserved publisher or upload is rejected.
+- eb **self-signs** the appx (cert subject = the publisher) so it can be **sideloaded** for local
+  testing; **Partner Center re-signs** on upload - submit the file as-is, no signtool/cert config
+  for the Store build.
+- **Bump `version`** for every resubmission (can't re-upload the same `x.x.x.0`).
+- Store tiles live in `build/appx/` (Square44/150, Wide310x150, StoreLogo); app icons in `build/`
+  (`build.win.icon` / `build.mac.icon`, also `main.js`).
+- `build.protocols` (`{name: Conesoft, schemes: [conesoft]}`) writes the `conesoft://` scheme into
+  the appx manifest + macOS `CFBundleURLTypes`; under appx this **replaces** the runtime
+  `setAsDefaultProtocolClient` in `main.js` (a no-op once packaged). See `MAC_BUILD.md` for the
+  cross-platform build + the macOS sharp-binary gap.
 
 ### Lazy loading
 - All routes lazy via `React.lazy` under one `<Suspense>` (`router.tsx`).
@@ -383,6 +408,9 @@ is the single source of truth for "paid". See `TODO.md` #1.
 - Metering fires on the homepage, favicon, and image-compression paths; **bulk + watch are unmetered by design** (see the ⚠️ section above).
 - `'limited'` is overloaded (exhausted trial vs churned sub); disambiguate via `subscriptionEnd`.
 - IPC results are `Uint8Array<ArrayBuffer>` → use `new Blob([result])`.
+- Packaged app launches but shows **no window** ⇒ a native dep didn't get collected into the asar
+  (classically sharp's `@img/*` binary) - it must be a **direct** dep; the crash is swallowed by
+  `main.js`'s `uncaughtException` handler. See Packaging.
 - `pdfjs-dist` v5 `page.render(...)` requires a `canvas` field alongside `canvasContext`.
 - `fileKey(file)` = `name-size-lastModified` - the identity used everywhere for dedupe/state.
 - PDF main-process state (`editorBuffer`, `mergedBuffer`) is a module-level singleton (single-window assumption).
