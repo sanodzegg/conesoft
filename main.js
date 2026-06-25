@@ -43,8 +43,8 @@ function createWindow() {
   const height = Math.min(Math.max(Math.round(sh * 0.95), 720), 1200)
 
   mainWindow = new BrowserWindow({
-    width,
-    height,
+    width: 1280,
+    height: 820,
     icon: path.join(__dirname, 'build/icon.icns'),
     webPreferences: {
       devTools: isDev,
