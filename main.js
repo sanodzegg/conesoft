@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, Notification, screen, shell } = require('electron')
+const { app, BrowserWindow, Menu, ipcMain, Notification, screen, shell } = require('electron')
 const path = require('path')
 
 // Last-resort handlers so an unexpected throw in the main process doesn't silently kill the
@@ -38,6 +38,10 @@ if (!gotLock) app.quit()
 let mainWindow = null
 
 function createWindow() {
+  // Remove the default app menu bar on Windows/Linux (File/Edit/View/...).
+  // Kept on macOS, where the menu lives in the system bar and provides Cmd+Q / edit shortcuts.
+  if (process.platform !== 'darwin') Menu.setApplicationMenu(null)
+
   const { width: sw, height: sh } = screen.getPrimaryDisplay().workAreaSize
   const width = Math.min(Math.max(Math.round(sw * 0.8), 1100), 1800)
   const height = Math.min(Math.max(Math.round(sh * 0.95), 720), 1200)

@@ -1,6 +1,6 @@
 {
   "name": "conesoft",
-  "version": "1.9.1",
+  "version": "1.9.2",
   "description": "Local-first desktop app for file conversion and media tooling. Convert images, video, audio, and documents entirely on-device. No uploads, no cloud.",
   "main": "main.js",
   "scripts": {
@@ -59,6 +59,7 @@
       "publisher": "CN=2F9FE4F3-C390-4CF8-9EDF-67E5029D73CC",
       "publisherDisplayName": "GS Works",
       "applicationId": "ConeLab",
+      "displayName": "Conesoft Tools",
       "backgroundColor": "#1a1a1a"
     },
     "files": [

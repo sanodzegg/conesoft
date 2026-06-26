@@ -1,9 +1,9 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
 const PRICE_TO_PLAN: Record<string, string> = {
-  'pri_01kr6tp1t2wv66fqe48wq109jy': 'monthly',
-  'pri_01kr6tpqy42a1fakn0ddbjb16c': 'annual',
-  'pri_01kr6tq788ans0kc1km9d6c788': 'lifetime',
+  'pri_01kqptt95hvdw00sffx18tkj8x': 'monthly',
+  'pri_01kqpttzaxm10swzh9289rtrcn': 'annual',
+  'pri_01kqptvpbwmkx94hbbcjfyxk9j': 'lifetime',
 }
 
 // Reject signatures older than this to blunt replay attacks (Paddle ts is unix seconds).
