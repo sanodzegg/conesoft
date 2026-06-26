@@ -106,7 +106,12 @@ supabase.auth.getSession().then(async ({ data }) => {
 
 supabase.auth.onAuthStateChange((event, session) => {
     if (event === 'SIGNED_OUT') {
-        useAuthStore.setState({ user: null, loading: false })
+        // A paid plan is mirrored to localStorage while signed in. On sign-out the account is
+        // anonymous again, so drop back to the free tier instead of leaving the stale paid plan
+        // (which would otherwise keep showing "Pro" + a renewal date with no session behind it).
+        storePlan('trial')
+        storeSubscriptionEnd(null)
+        useAuthStore.setState({ user: null, plan: 'trial', subscriptionEnd: null, loading: false })
         unsubscribeFromPlanChanges()
     } else if (event === 'SIGNED_IN' && session?.user) {
         fetchAndSetPlan(session.user)
