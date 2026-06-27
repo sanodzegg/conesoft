@@ -71,7 +71,7 @@ const PLANS = [
             'Watch folders - convert new files automatically',
             'Image editor & canvas tools',
             'Favicon generator & SVG editor',
-            'Settings sync across devices',
+            'PDF, screenshot & website tools',
             'Priority support',
         ],
         ctaLabel: 'Get Pro',
