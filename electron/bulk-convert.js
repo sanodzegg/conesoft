@@ -1,7 +1,7 @@
 const { ipcMain, dialog, app } = require('electron')
 const path = require('path')
 const fs = require('fs')
-const { normalizeFormat, sharpFormatOptions } = require('./convert')
+const { normalizeFormat, sharpFormatOptions, decodeHeic } = require('./convert')
 
 const sharpPath = app.isPackaged
   ? path.join(process.resourcesPath, 'app.asar.unpacked', 'node_modules', 'sharp')
@@ -11,7 +11,9 @@ const sharp = require(sharpPath)
 // Mirror the formats this Sharp build can actually decode (see imageEngine.ts).
 // bmp is intentionally excluded - it isn't compiled into this libvips build, so
 // scanning it would only queue files that fail at conversion time.
-const IMAGE_EXTS = new Set(['.png', '.jpg', '.jpeg', '.jfif', '.webp', '.gif', '.tiff', '.tif', '.avif', '.svg'])
+// heic/heif can't be decoded by sharp's prebuilt libheif (HEVC omitted); convertFile
+// routes them through heic-convert first, matching the homepage engine.
+const IMAGE_EXTS = new Set(['.png', '.jpg', '.jpeg', '.jfif', '.webp', '.gif', '.tiff', '.tif', '.avif', '.heic', '.heif', '.svg'])
 
 function isImage(filePath) {
   return IMAGE_EXTS.has(path.extname(filePath).toLowerCase())
@@ -71,10 +73,16 @@ async function convertFile(srcPath, targetFormat, quality, outputMode, deleteOri
   const srcStat = fs.statSync(srcPath)
   const originalSize = srcStat.size
 
-  const isSvg = path.extname(srcPath).toLowerCase() === '.svg'
+  const srcExt = path.extname(srcPath).toLowerCase()
+  const isSvg = srcExt === '.svg'
+  const isHeic = srcExt === '.heic' || srcExt === '.heif'
   const sharpFormat = normalizeFormat(targetFormat)
 
-  await sharp(srcPath, isSvg ? { density: 300 } : {})
+  // sharp can't decode HEIC/HEIF (HEVC) - decode to a PNG buffer first, like the homepage
+  // engine. Everything else streams straight from the path (cheaper than buffering).
+  const input = isHeic ? await decodeHeic(fs.readFileSync(srcPath)) : srcPath
+
+  await sharp(input, isSvg ? { density: 300 } : {})
     .toFormat(sharpFormat, sharpFormatOptions(sharpFormat, quality))
     .toFile(destPath)
 

@@ -113,7 +113,7 @@ outside the view). Types live in `src/types/electron.d.ts`.
 **Image conversion gotchas (`electron/convert.js`):**
 - `normalizeFormat`: jfif→jpeg, tif→tiff, heic/heif→heif.
 - `sharpFormatOptions`: PNG ignores quality (maps to compressionLevel); WebP at q100 → lossless; GIF ignores quality.
-- HEIC sniffing reads the `ftyp` box; an **AVIF guard** prevents AVIF (which can share the `mif1` brand) from being routed to the HEVC-only `heic-convert`.
+- HEIC sniffing reads the `ftyp` box; an **AVIF guard** prevents AVIF (which can share the `mif1` brand) from being routed to the HEVC-only `heic-convert`. This lives in the exported `decodeHeic(buf)` helper (returns the buffer untouched when it isn't HEVC-HEIC), shared by the homepage handler **and** `bulk-convert.js` so both decode HEIC identically.
 - Video/audio write temp files to `os.tmpdir()` with `randomUUID` and clean them in `finally`.
 
 ---

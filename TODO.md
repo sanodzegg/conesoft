@@ -110,10 +110,13 @@ Webhook sets `plan: 'limited'` immediately and `subscription_end` to the current
 end. With `effective_from: next_billing_period` on cancel, Paddle should fire the event
 at period end - verify the user keeps Pro access until then and isn't downgraded early.
 
-### 7. Align bulk converter inputs with the image engine
-`electron/bulk-convert.js` can't decode HEIC/HEIF (it calls Sharp directly, no
-`heic-convert` path) even though the homepage engine can. Either add the heic-convert
-path to bulk or document the gap. (`.bmp` already removed; `.jfif` added.)
+### 7. ✅ Align bulk converter inputs with the image engine - RESOLVED (2026-06-29)
+`electron/bulk-convert.js` now decodes HEIC/HEIF. The HEIC sniff+`heic-convert` decode was
+extracted from `convert.js` into a shared `decodeHeic(buf)` helper (keeps the AVIF guard),
+exported and reused by both the homepage handler and bulk `convertFile`. `IMAGE_EXTS` now
+includes `.heic`/`.heif` so the scanner + watch mode pick them up; `convertFile` reads those
+files to a buffer and runs `decodeHeic` before Sharp (everything else still streams from path).
+(`.bmp` already removed; `.jfif` added.)
 
 ### 8. Distribution: Microsoft Store first, signed macOS later
 Decided 2026-06-11. (Pricing note: staying at $8/mo / $110 lifetime for now - a sale is
