@@ -99,11 +99,19 @@ page view render correctly (this was previously a type error that shipped silent
 
 ## 🟠 Should do
 
-### 5. Paddle webhook idempotency
-`supabase/functions/paddle-webhook/index.ts` has no event dedup - a redelivered
-`transaction.completed` re-applies the update. Add a `processed_events` table (event id
-PK) and short-circuit already-seen events. (Signature is now constant-time + has a
-freshness window.)
+### 5. ✅ Paddle webhook idempotency - RESOLVED (2026-06-29)
+`supabase/functions/paddle-webhook/index.ts` now dedups deliveries. New `processed_events`
+table (migration `20260629120000`, `event_id` PK, RLS-on/no-policies so only the service_role
+webhook touches it). The handler checks the ledger at the top and short-circuits an already-seen
+`event_id` with a 200; it records the id via `markProcessed` **only after a successful update**,
+so a failed attempt (500) is still retried instead of being wrongly skipped. Keyed on the Paddle
+**event_id** (not customer/transaction/subscription id), so two distinct purchases by one user
+(e.g. buy → immediate upgrade) are processed independently and only true redeliveries are dropped.
+`markProcessed` uses `ignoreDuplicates` (`ON CONFLICT DO NOTHING`) so a concurrent double-delivery
+is a no-op, not a PK 500. (Signature was already constant-time + freshness-windowed.)
+
+> **Apply migration `20260629120000_add_processed_events.sql` and redeploy the
+> `paddle-webhook` Edge Function** before this takes effect in prod.
 
 ### 6. Confirm `subscription.canceled` timing
 Webhook sets `plan: 'limited'` immediately and `subscription_end` to the current period

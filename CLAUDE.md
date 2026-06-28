@@ -317,13 +317,18 @@ is the single source of truth for "paid". See `TODO.md` #1.
 - `settings` - user_id, image_quality, default_*_format, default_output_folder, updated_at.
 - `conversion_counts` - user_id, image_count, document_count, video_count,
   **audio_count**, updated_at.
+- `processed_events` - `event_id` (PK), event_type, processed_at. Webhook idempotency ledger;
+  RLS-on with **no policies** (only the service_role webhook touches it).
 - Trigger `handle_new_user` inserts `users` (plan `trial`) + zeroed `conversion_counts` on signup.
 
 ### Paddle
 - `paddle-webhook`: HMAC-SHA256 signature verify (constant-time + 5-min freshness
   window), maps price IDs → plan (`PRICE_TO_PLAN`), handles `transaction.completed`
   (sets plan, subscription_end, paddle ids) and `subscription.canceled` (→ limited).
-  **No idempotency/event-dedup yet** (see TODO).
+  **Idempotent**: dedups on Paddle `event_id` via the `processed_events` ledger - checks at the
+  top (skip already-seen → 200), records via `markProcessed` **only after a successful update** so
+  failed attempts still retry. Keyed on event_id (not customer/transaction) so distinct purchases
+  by one user still both apply; only true redeliveries are dropped.
 - `cancel-subscription`: authenticated; cancels via Paddle API `effective_from:
   next_billing_period` (user keeps access until period end; webhook fires at end).
 - Edge-function env: `PADDLE_WEBHOOK_SECRET`, `PADDLE_API_KEY`, `PADDLE_SANDBOX`,

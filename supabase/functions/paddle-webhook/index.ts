@@ -41,6 +41,22 @@ async function verifySignature(rawBody: string, header: string, secret: string):
   return timingSafeEqual(computed, h1)
 }
 
+// Record an event id once its update has been applied, so later redeliveries are skipped.
+// ignoreDuplicates makes a concurrent double-delivery a no-op instead of a primary-key 500.
+// A failure here is logged but non-fatal: the update already succeeded, and the per-event
+// update is idempotent, so at worst a retry harmlessly re-applies the same change.
+async function markProcessed(
+  supabase: ReturnType<typeof createClient>,
+  eventId: string | undefined,
+  eventType: string
+): Promise<void> {
+  if (!eventId) return
+  const { error } = await supabase
+    .from('processed_events')
+    .upsert({ event_id: eventId, event_type: eventType }, { onConflict: 'event_id', ignoreDuplicates: true })
+  if (error) console.error('Failed to record processed event:', error)
+}
+
 Deno.serve(async (req) => {
   const webhookSecret = Deno.env.get('PADDLE_WEBHOOK_SECRET')
   if (!webhookSecret) return new Response('Webhook secret not configured', { status: 500 })
@@ -52,12 +68,28 @@ Deno.serve(async (req) => {
   if (!valid) return new Response('Invalid signature', { status: 401 })
 
   const event = JSON.parse(rawBody)
-  const { event_type, data } = event
+  const { event_id, event_type, data } = event
 
   const supabase = createClient(
     Deno.env.get('SUPABASE_URL')!,
     Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
   )
+
+  // Idempotency: Paddle delivers at-least-once and retries on any slow/failed response, so
+  // the same event_id can arrive multiple times. Skip an event we've already applied. The id
+  // is recorded only AFTER a successful update (markProcessed), so an attempt that returned an
+  // error is retried normally rather than being wrongly skipped as "already done".
+  if (event_id) {
+    const { data: seen } = await supabase
+      .from('processed_events')
+      .select('event_id')
+      .eq('event_id', event_id)
+      .maybeSingle()
+    if (seen) {
+      console.log(`Skipping already-processed event ${event_id}`)
+      return new Response('Already processed', { status: 200 })
+    }
+  }
 
   if (event_type === 'transaction.completed') {
     const userId = data.custom_data?.user_id
@@ -85,6 +117,7 @@ Deno.serve(async (req) => {
       return new Response('DB error', { status: 500 })
     }
 
+    await markProcessed(supabase, event_id, event_type)
     console.log(`Updated user ${userId} to plan ${plan}`)
     return new Response('OK', { status: 200 })
   }
@@ -105,6 +138,7 @@ Deno.serve(async (req) => {
       return new Response('DB error', { status: 500 })
     }
 
+    await markProcessed(supabase, event_id, event_type)
     console.log(`Canceled subscription ${subscriptionId}`)
     return new Response('OK', { status: 200 })
   }
