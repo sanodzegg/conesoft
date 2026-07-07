@@ -133,7 +133,7 @@ the UI with it, for the duration of the read/write. On big files this reads as "
 
 ## Item 3 — FFmpeg can hang forever; no cancellation anywhere
 
-**Status:** TODO
+**Status:** TODO — scheduled for the evening of **Jul 9, 2026**. Next item to pick up.
 
 **Problem.** A malformed video can make ffmpeg block with no output. The promise in
 `electron/convert.js:204` never settles → file stuck "converting" forever, reserved token
@@ -204,7 +204,11 @@ silently destroys the first. **Silent data loss** — the worst category for a f
 
 ## Item 5 — Everything routes by file extension (mislabeled files fail confusingly)
 
-**Status:** TODO
+**Status:** DONE (2026-07-08) — added `sniffContainer` magic-byte check (`electron/convert.js`).
+Document handler now fails clearly when a `.pdf`/`.docx` is really another type (instead of a
+pdf-parse/mammoth stack trace). Image handler rejects a PDF/Office file mislabeled as an image
+with "use the Document converter." Note: Sharp already auto-detects image content, so genuine
+image-vs-image mislabels (JPEG named `.png`) just convert correctly - no guard needed there.
 
 **Problem.** Except for the HEIC content-sniff, the engine is chosen purely by extension
 (`getExtension` in `src/utils/fileUtils.ts`). A `.png` that's really a JPEG, or a mislabeled
@@ -237,7 +241,10 @@ silently destroys the first. **Silent data loss** — the worst category for a f
 
 ## Item 6 — Raw FFmpeg stderr leaks to users
 
-**Status:** TODO
+**Status:** DONE (2026-07-08) — `makeMediaError` (`electron/convert.js`) logs full stderr to the
+console for debugging but rejects with a short human message, mapping a few known signatures
+(missing file, unsupported codec, corrupt/invalid data) to specific sentences. Wired into both
+the video and audio error handlers (audio previously passed raw `reject`).
 
 **Problem.** `electron/convert.js:238` rejects with the entire ffmpeg stderr dump, which becomes
 the user-facing failure message. Reliable-feeling tools translate errors; they don't leak the
@@ -267,7 +274,11 @@ engine's internals.
 
 ## Item 7 — No output validation (zero-byte "successes")
 
-**Status:** TODO
+**Status:** DONE (2026-07-08) — image, video, and audio handlers now throw if the output buffer
+is empty (`result.length === 0`), so a zero-byte result fails cleanly and the existing refund
+path in `conversionService.convertFile` reverses the token spend instead of counting a false
+success. Used `> 0` (not a floor) so legitimately tiny outputs still pass. Document handler left
+as-is (a text-layer-less PDF legitimately extracts to empty text; a floor would false-fail).
 
 **Problem.** Nothing checks the result buffer is non-empty / plausibly valid before it's returned
 as a successful conversion. A zero-byte or truncated output currently counts as success **and**

@@ -143,11 +143,49 @@ function sharpFormatOptions(sharpFormat, quality) {
   return { quality }
 }
 
+// Coarse content sniff by magic bytes - used to catch files whose extension lies about their
+// type (e.g. a .pdf that's really a docx) so we can fail with a clear message instead of a
+// cryptic library stack trace. Returns null for formats without a distinctive header (txt, svg).
+function sniffContainer(buf) {
+  if (!buf || buf.length < 4) return null
+  if (buf[0] === 0x25 && buf[1] === 0x50 && buf[2] === 0x44 && buf[3] === 0x46) return 'pdf'   // %PDF
+  if (buf[0] === 0x50 && buf[1] === 0x4b && (buf[2] === 0x03 || buf[2] === 0x05 || buf[2] === 0x07)) return 'zip' // PK.. (docx/office)
+  if (buf[0] === 0x89 && buf[1] === 0x50 && buf[2] === 0x4e && buf[3] === 0x47) return 'png'
+  if (buf[0] === 0xff && buf[1] === 0xd8 && buf[2] === 0xff) return 'jpeg'
+  if (buf[0] === 0x47 && buf[1] === 0x49 && buf[2] === 0x46) return 'gif'   // GIF
+  if (buf[0] === 0x52 && buf[1] === 0x49 && buf[2] === 0x46 && buf[3] === 0x46) return 'riff'  // RIFF (webp/wav/avi)
+  return null
+}
+
+const SNIFF_LABELS = { pdf: 'PDF', zip: 'Word/Office document', png: 'PNG image', jpeg: 'JPEG image', gif: 'GIF image', riff: 'WebP/WAV/AVI file' }
+
+// Translate a raw ffmpeg failure into a short, human message. Full stderr goes to the log so
+// real bug reports stay debuggable; the user never sees the engine's guts.
+function makeMediaError(stderr, err, kind) {
+  const detail = stderr || (err && err.message) || ''
+  console.error(`[convert-${kind}] ffmpeg failed:\n${detail}`)
+  const low = detail.toLowerCase()
+  if (low.includes('no such file') || low.includes('enoent'))
+    return new Error(`Couldn't read the ${kind} file - it may have been moved or deleted.`)
+  if ((low.includes('codec') && (low.includes('unknown') || low.includes('not found'))) || low.includes('decoder') || low.includes('unsupported'))
+    return new Error(`Couldn't convert this ${kind} - it uses a codec we don't support.`)
+  if (low.includes('invalid data') || low.includes('moov atom') || low.includes('error while decoding') || low.includes('does not contain'))
+    return new Error(`Couldn't convert this ${kind} - the file looks corrupt or incomplete.`)
+  return new Error(`Couldn't convert this ${kind}. The file may be corrupt or use an unsupported format.`)
+}
+
 function registerConvertHandlers() {
   ipcMain.handle('convert-file', async (_event, buffer, targetFormat, quality = 60, imageOptions = {}) => {
     const { width, height, fit, keepMetadata = true } = imageOptions
     const sharpFormat = normalizeFormat(targetFormat)
     let buf = await decodeHeic(Buffer.from(buffer))
+
+    // Sharp auto-detects image content, so a JPEG named .png still converts fine. But a
+    // document (PDF/Office) mislabeled as an image would fail cryptically deep in libvips -
+    // catch that case up front with a clear message. (buf is a PNG here if it was HEIC.)
+    const sniff = sniffContainer(buf)
+    if (sniff === 'pdf' || sniff === 'zip')
+      throw new Error(`This looks like a ${SNIFF_LABELS[sniff]}, not an image. Use the Document converter instead.`)
 
     // SVG needs density (DPI) set at read time for proper rasterization.
     // Check the first 512 bytes to handle <?xml ...?> preambles and BOMs.
@@ -167,11 +205,22 @@ function registerConvertHandlers() {
     }
 
     const result = await pipeline.toFormat(sharpFormat, sharpFormatOptions(sharpFormat, quality)).toBuffer()
+    if (!result || result.length === 0)
+      throw new Error('Conversion produced an empty image - the source may be corrupt or unsupported.')
     return result
   })
 
   ipcMain.handle('convert-document', async (_event, buffer, targetFormat, sourceFormat) => {
     const buf = Buffer.from(buffer)
+
+    // The document extractors switch strictly on the extension, so a mislabeled file throws
+    // a cryptic pdf-parse/mammoth error. Sniff the content and fail clearly on a real mismatch.
+    const sniff = sniffContainer(buf)
+    if (sourceFormat === 'pdf' && sniff && sniff !== 'pdf')
+      throw new Error(`This file is named .pdf but looks like a ${SNIFF_LABELS[sniff]}. Rename it to the correct extension and try again.`)
+    if (sourceFormat === 'docx' && sniff && sniff !== 'zip')
+      throw new Error(`This file is named .docx but looks like a ${SNIFF_LABELS[sniff]}. Rename it to the correct extension and try again.`)
+
     const text = await extractText(buf, sourceFormat)
 
     if (targetFormat === 'txt') return Buffer.from(text, 'utf-8')
@@ -238,10 +287,12 @@ function registerConvertHandlers() {
           cmd.output(outputPath)
         }
 
-        cmd.on('end', resolve).on('error', (err, _stdout, stderr) => reject(new Error(stderr || err.message))).run()
+        cmd.on('end', resolve).on('error', (err, _stdout, stderr) => reject(makeMediaError(stderr, err, 'video'))).run()
       })
 
       const result = await fs.promises.readFile(outputPath)
+      if (!result || result.length === 0)
+        throw new Error('Conversion produced an empty video - the source may be corrupt or unsupported.')
       return result
     } finally {
       // Only remove the input temp file if we created it - never delete the user's source path.
@@ -272,11 +323,13 @@ function registerConvertHandlers() {
           .toFormat(ffmpegFmt)
           .output(outputPath)
           .on('end', resolve)
-          .on('error', reject)
+          .on('error', (err, _stdout, stderr) => reject(makeMediaError(stderr, err, 'audio')))
           .run()
       })
 
       const result = await fs.promises.readFile(outputPath)
+      if (!result || result.length === 0)
+        throw new Error('Conversion produced an empty audio file - the source may be corrupt or unsupported.')
       return result
     } finally {
       if (!usePath) await fs.promises.rm(inputPath, { force: true })
