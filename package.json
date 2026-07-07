@@ -1,6 +1,6 @@
 {
   "name": "conesoft",
-  "version": "1.9.2",
+  "version": "1.10.0",
   "description": "Local-first desktop app for file conversion and media tooling. Convert images, video, audio, and documents entirely on-device. No uploads, no cloud.",
   "main": "main.js",
   "scripts": {
