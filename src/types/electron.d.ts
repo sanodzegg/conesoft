@@ -26,8 +26,11 @@ declare interface Window {
     convert: (buffer: ArrayBuffer, targetFormat: string, quality?: number, imageOptions?: { width?: number; height?: number; fit?: string; keepMetadata?: boolean }) => Promise<Uint8Array<ArrayBuffer>>
     convertDocument: (buffer: ArrayBuffer, targetFormat: string, sourceFormat: string) => Promise<Uint8Array<ArrayBuffer>>
     // source: absolute path (string) for large files, or ArrayBuffer for in-memory Files.
-    convertVideo: (source: string | ArrayBuffer, sourceExt: string, targetFormat: string, videoOptions?: { width?: number; height?: number; fit?: string }) => Promise<Uint8Array<ArrayBuffer>>
-    convertAudio: (source: string | ArrayBuffer, sourceExt: string, targetFormat: string) => Promise<Uint8Array<ArrayBuffer>>
+    // jobId: opaque id to cancel this conversion mid-flight via cancelConversion.
+    // Resolve to null when the user cancelled the job mid-flight (see cancelConversion).
+    convertVideo: (source: string | ArrayBuffer, sourceExt: string, targetFormat: string, videoOptions?: { width?: number; height?: number; fit?: string }, jobId?: string) => Promise<Uint8Array<ArrayBuffer> | null>
+    convertAudio: (source: string | ArrayBuffer, sourceExt: string, targetFormat: string, jobId?: string) => Promise<Uint8Array<ArrayBuffer> | null>
+    cancelConversion: (jobId: string) => Promise<boolean>
     convertFavicon: (buffer: ArrayBuffer) => Promise<{ ico: ArrayBuffer; pngs: { size: number; buf: ArrayBuffer }[] }>
 
     bulkPickFolder: () => Promise<string | null>

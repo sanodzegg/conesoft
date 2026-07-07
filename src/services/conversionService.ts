@@ -51,7 +51,17 @@ if (typeof window !== 'undefined') {
   })
 }
 
-async function convertFile(file: File, filePlan: string, deps: ConversionDeps): Promise<void> {
+// The controller for the conversion run in progress. Held at module scope (not in a component
+// ref) so cancellation reaches *every* entry point - Convert All and the per-file convert button
+// both flow through convertAll, so both are cancelable through this one door.
+let activeController: AbortController | null = null
+
+// Cancel whatever conversion run is currently in progress. Safe to call when nothing is running.
+export function cancelActiveConversions(): void {
+  activeController?.abort()
+}
+
+async function convertFile(file: File, filePlan: string, deps: ConversionDeps, signal?: AbortSignal): Promise<void> {
   const engine = getEngineForFile(file)
   if (!engine) {
     deps.setFailedFile(file, 'Unsupported file type')
@@ -60,6 +70,12 @@ async function convertFile(file: File, filePlan: string, deps: ConversionDeps): 
 
   const limitType = toEngineType(engine.id)
   const key = fileKey(file)
+
+  // Cancelled before we even started this file: settle it as canceled (nothing reserved yet).
+  if (signal?.aborted) {
+    deps.setFailedFile(file, 'Canceled')
+    return
+  }
 
   // Reserve slot upfront for all plan types - plan is already resolved per-file before dispatch
   // so parallel conversions use the correct bucket. The reservation is mirrored in inFlightRefunds
@@ -101,6 +117,10 @@ async function convertFile(file: File, filePlan: string, deps: ConversionDeps): 
 
   const quality = settings.quality ?? getDefaultQualityForFile(file, deps)
 
+  // If the batch is cancelled while this file is mid-flight, kill its ffmpeg process (video/audio).
+  const onAbort = () => { window.electron.cancelConversion?.(key) }
+  signal?.addEventListener('abort', onAbort, { once: true })
+
   try {
     deps.markFileConverting(file)
     const blob = await engine.convert(file, targetFormat, {
@@ -118,7 +138,10 @@ async function convertFile(file: File, filePlan: string, deps: ConversionDeps): 
   } catch (err) {
     refund()
     deps.unmarkFileConverting(file)
-    deps.setFailedFile(file, err instanceof Error ? err.message : (err as any)?.message ?? String(err) ?? 'Unknown error')
+    const canceled = signal?.aborted || (err instanceof Error && err.message === 'canceled')
+    deps.setFailedFile(file, canceled ? 'Canceled' : (err instanceof Error ? err.message : (err as any)?.message ?? String(err) ?? 'Unknown error'))
+  } finally {
+    signal?.removeEventListener('abort', onAbort)
   }
 }
 
@@ -199,21 +222,32 @@ export async function convertAll(files: File[], deps: ConversionDeps): Promise<v
     },
   }
 
+  // Own the run's controller at module scope so cancelActiveConversions() can reach it, whatever
+  // entry point started this run. Cleared in finally (only if still ours - a newer run may have
+  // taken over).
+  const controller = new AbortController()
+  activeController = controller
+  const signal = controller.signal
+
   const images = dispatchPending.filter((f) => getEngineForFile(f)?.id === 'image')
   const nonImages = dispatchPending.filter((f) => getEngineForFile(f)?.id !== 'image')
 
-  const imagePromise = runWithConcurrency(
-    images.map((f) => () => convertFile(f, deps.plan, wrappedDeps)),
-    IMAGE_CONCURRENCY
-  )
+  try {
+    const imagePromise = runWithConcurrency(
+      images.map((f) => () => convertFile(f, deps.plan, wrappedDeps, signal)),
+      IMAGE_CONCURRENCY
+    )
 
-  const nonImagePromise = (async () => {
-    for (const f of nonImages) {
-      await convertFile(f, deps.plan, wrappedDeps)
-    }
-  })()
+    const nonImagePromise = (async () => {
+      for (const f of nonImages) {
+        await convertFile(f, deps.plan, wrappedDeps, signal)
+      }
+    })()
 
-  await Promise.all([imagePromise, nonImagePromise])
+    await Promise.all([imagePromise, nonImagePromise])
+  } finally {
+    if (activeController === controller) activeController = null
+  }
 
   deps.onBatchComplete?.(successCount, dispatchPending.length)
 }

@@ -174,6 +174,43 @@ function makeMediaError(stderr, err, kind) {
   return new Error(`Couldn't convert this ${kind}. The file may be corrupt or use an unsupported format.`)
 }
 
+// Kill an ffmpeg job that makes no progress for this long. Based on *time since last activity*
+// (not total elapsed) so a legitimately slow-but-progressing large conversion is never killed -
+// only a genuinely stuck one. Also holds active jobs so a user cancel can kill them (Item 3B).
+const STALL_TIMEOUT_MS = 90_000
+const activeJobs = new Map() // jobId -> fluent-ffmpeg command
+
+function runFfmpeg(cmd, kind, jobId) {
+  return new Promise((resolve, reject) => {
+    let last = Date.now()
+    let settled = false
+    const bump = () => { last = Date.now() }
+    const settle = (fn) => (...args) => {
+      if (settled) return
+      settled = true
+      clearInterval(timer)
+      if (jobId) activeJobs.delete(jobId)
+      fn(...args)
+    }
+    const onEnd = settle(() => resolve())
+    const onError = settle((err, _stdout, stderr) => {
+      // A deliberate user cancel (Item 3B) isn't a failure - resolve quietly with a sentinel so
+      // Electron doesn't log the rejected handler as a scary "Error occurred in handler" trace.
+      if (cmd._canceled) return resolve('canceled')
+      reject(makeMediaError(stderr, err, kind))
+    })
+    const timer = setInterval(() => {
+      if (settled) return
+      if (Date.now() - last > STALL_TIMEOUT_MS) {
+        try { cmd.kill('SIGKILL') } catch {}
+        settle(reject)(new Error(`This ${kind} conversion stalled and was stopped - the file may be corrupt or use an unsupported codec.`))
+      }
+    }, 5000)
+    if (jobId) activeJobs.set(jobId, cmd)
+    cmd.on('start', bump).on('progress', bump).on('stderr', bump).on('end', onEnd).on('error', onError).run()
+  })
+}
+
 function registerConvertHandlers() {
   ipcMain.handle('convert-file', async (_event, buffer, targetFormat, quality = 60, imageOptions = {}) => {
     const { width, height, fit, keepMetadata = true } = imageOptions
@@ -241,7 +278,7 @@ function registerConvertHandlers() {
     return { ico, pngs: pngBuffers.map((buf, i) => ({ size: FAVICON_SIZES[i], buf })) }
   })
 
-  ipcMain.handle('convert-video', async (_event, source, sourceExt, targetFormat, videoOptions = {}) => {
+  ipcMain.handle('convert-video', async (_event, source, sourceExt, targetFormat, videoOptions = {}, jobId) => {
     const { width, height, fit } = videoOptions
     const tmpDir = os.tmpdir()
     const outputPath = path.join(tmpDir, `${randomUUID()}.${targetFormat}`)
@@ -253,9 +290,9 @@ function registerConvertHandlers() {
     if (!usePath) await fs.promises.writeFile(inputPath, Buffer.from(source))
 
     try {
-      await new Promise((resolve, reject) => {
-        const cmd = ffmpeg(inputPath).setFfmpegPath(ffmpegStaticPath)
+      const cmd = ffmpeg(inputPath).setFfmpegPath(ffmpegStaticPath)
 
+      {
         if (width || height) {
           // For Scale fit, missing dimension defaults to the other (square output)
           const effectiveWidth = width || (fit === 'scale' ? height : undefined)
@@ -286,9 +323,9 @@ function registerConvertHandlers() {
         } else {
           cmd.output(outputPath)
         }
+      }
 
-        cmd.on('end', resolve).on('error', (err, _stdout, stderr) => reject(makeMediaError(stderr, err, 'video'))).run()
-      })
+      if (await runFfmpeg(cmd, 'video', jobId) === 'canceled') return null
 
       const result = await fs.promises.readFile(outputPath)
       if (!result || result.length === 0)
@@ -301,7 +338,7 @@ function registerConvertHandlers() {
     }
   })
 
-  ipcMain.handle('convert-audio', async (_event, source, sourceExt, targetFormat) => {
+  ipcMain.handle('convert-audio', async (_event, source, sourceExt, targetFormat, jobId) => {
     // Map output format aliases to ffmpeg format/container names
     const fmtMap = { m4a: 'ipod', weba: 'webm', ogg: 'ogg', aiff: 'aiff' }
     const ffmpegFmt = fmtMap[targetFormat] || targetFormat
@@ -316,16 +353,13 @@ function registerConvertHandlers() {
     if (!usePath) await fs.promises.writeFile(inputPath, Buffer.from(source))
 
     try {
-      await new Promise((resolve, reject) => {
-        ffmpeg(inputPath)
-          .setFfmpegPath(ffmpegStaticPath)
-          .noVideo()
-          .toFormat(ffmpegFmt)
-          .output(outputPath)
-          .on('end', resolve)
-          .on('error', (err, _stdout, stderr) => reject(makeMediaError(stderr, err, 'audio')))
-          .run()
-      })
+      const cmd = ffmpeg(inputPath)
+        .setFfmpegPath(ffmpegStaticPath)
+        .noVideo()
+        .toFormat(ffmpegFmt)
+        .output(outputPath)
+
+      if (await runFfmpeg(cmd, 'audio', jobId) === 'canceled') return null
 
       const result = await fs.promises.readFile(outputPath)
       if (!result || result.length === 0)
@@ -335,6 +369,18 @@ function registerConvertHandlers() {
       if (!usePath) await fs.promises.rm(inputPath, { force: true })
       await fs.promises.rm(outputPath, { force: true })
     }
+  })
+
+  // Cancel an in-flight video/audio job by killing its ffmpeg process. Marked `_canceled` first
+  // so runFfmpeg rejects with a quiet 'canceled' (not a scary error). No-op if already finished.
+  ipcMain.handle('cancel-conversion', (_event, jobId) => {
+    const cmd = activeJobs.get(jobId)
+    if (cmd) {
+      cmd._canceled = true
+      try { cmd.kill('SIGKILL') } catch {}
+      activeJobs.delete(jobId)
+    }
+    return true
   })
 }
 

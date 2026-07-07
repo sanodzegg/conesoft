@@ -133,7 +133,21 @@ the UI with it, for the duration of the read/write. On big files this reads as "
 
 ## Item 3 — FFmpeg can hang forever; no cancellation anywhere
 
-**Status:** TODO — scheduled for the evening of **Jul 9, 2026**. Next item to pick up.
+**Status:** DONE (2026-07-08). Two parts:
+- **Watchdog:** `runFfmpeg` (`electron/convert.js`) wraps every video/audio job and kills ffmpeg
+  after `STALL_TIMEOUT_MS` (90s) of **no activity** (start/progress/stderr) - so a stuck job fails
+  with "conversion stalled" instead of hanging forever, while a slow-but-progressing large job is
+  never killed. Temp cleanup still runs via `finally`.
+- **User cancel:** batch conversions thread an `AbortSignal` (`conversionService` → `convertFile`),
+  a "Cancel" button replaces "Convert All" while converting (`components/files/list.tsx`), and
+  in-flight video/audio ffmpeg is killed via `cancelConversion(jobId)` (jobId = `fileKey`,
+  registered in `activeJobs`). Killed jobs reject with a quiet `'canceled'` (via `cmd._canceled`),
+  refund their reserved tokens, and settle as "Canceled" - the batch counter always completes.
+  Images (Sharp, not abortable) finish their ≤4 in-flight, but no new files dispatch after cancel.
+
+**Runtime verification still needed:** (1) corrupt/truncated video → fails with the stall message
+after ~90s rather than hanging; (2) start a large video convert, hit Cancel → stops promptly, token
+refunded, file shows Canceled. Single-file convert (`convertSingle`) is intentionally not cancelable.
 
 **Problem.** A malformed video can make ffmpeg block with no output. The promise in
 `electron/convert.js:204` never settles → file stuck "converting" forever, reserved token

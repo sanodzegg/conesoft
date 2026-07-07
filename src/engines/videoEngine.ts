@@ -1,6 +1,6 @@
 import type { ConversionEngine } from './ConversionEngine'
 import type { ConversionOptions } from '@/types'
-import { getExtension } from '@/utils/fileUtils'
+import { getExtension, fileKey } from '@/utils/fileUtils'
 
 const MIME: Record<string, string> = {
   mp4: 'video/mp4',
@@ -24,7 +24,8 @@ export const videoEngine: ConversionEngine = {
       width: options.width,
       height: options.height,
       fit: options.fit,
-    })
+    }, fileKey(file))
+    if (!result) throw new Error('canceled') // handler returns null when the user cancelled
     return new Blob([result], { type: MIME[targetFormat] })
   },
 }

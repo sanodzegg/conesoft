@@ -9,8 +9,10 @@ contextBridge.exposeInMainWorld('electron', {
   convert: (buffer, targetFormat, quality, imageOptions) => ipcRenderer.invoke('convert-file', buffer, targetFormat, quality, imageOptions),
   convertDocument: (buffer, targetFormat, sourceFormat) => ipcRenderer.invoke('convert-document', buffer, targetFormat, sourceFormat),
   // source may be an absolute path (string) or an ArrayBuffer (in-memory fallback).
-  convertVideo: (source, sourceExt, targetFormat, videoOptions) => ipcRenderer.invoke('convert-video', source, sourceExt, targetFormat, videoOptions),
-  convertAudio: (source, sourceExt, targetFormat) => ipcRenderer.invoke('convert-audio', source, sourceExt, targetFormat),
+  // jobId lets the renderer cancel an in-flight conversion via cancelConversion.
+  convertVideo: (source, sourceExt, targetFormat, videoOptions, jobId) => ipcRenderer.invoke('convert-video', source, sourceExt, targetFormat, videoOptions, jobId),
+  convertAudio: (source, sourceExt, targetFormat, jobId) => ipcRenderer.invoke('convert-audio', source, sourceExt, targetFormat, jobId),
+  cancelConversion: (jobId) => ipcRenderer.invoke('cancel-conversion', jobId),
   convertFavicon: (buffer) => ipcRenderer.invoke('convert-favicon', buffer),
 
   // Bulk converter

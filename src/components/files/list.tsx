@@ -2,7 +2,7 @@ import File from "./file"
 import { Button } from "../ui/button"
 import { useConvertStore } from "@/store/useConvertStore"
 import { fileKey } from "@/utils/fileUtils"
-import { convertAll } from "@/services/conversionService"
+import { convertAll, cancelActiveConversions } from "@/services/conversionService"
 import { useConversionCountContext } from "@/lib/ConversionCountContext"
 import { useAuth } from "@/lib/useAuth"
 import { useNavigate } from "react-router-dom"
@@ -54,6 +54,8 @@ export default function FileList() {
         })
     }
 
+    const handleCancel = () => cancelActiveConversions()
+
     if (files.length === 0 || allDone) return null
 
     const useVirtual = files.length >= VIRTUALIZE_THRESHOLD
@@ -62,9 +64,15 @@ export default function FileList() {
         <section className="py-6 xl:py-7 2xl:py-8">
             <div className="mb-6 xl:mb-7 2xl:mb-8 flex items-center justify-between">
                 <h3 className="font-medium text-primary/60 font-body text-base xl:text-lg">Added ({files.length})</h3>
-                <Button onClick={handleConvertAll} disabled={isConverting} variant={'secondary'} className={'font-normal xl:text-base xl:h-10 xl:px-5'}>
-                    Convert All
-                </Button>
+                {isConverting ? (
+                    <Button onClick={handleCancel} variant={'destructive'} className={'font-normal xl:text-base xl:h-10 xl:px-5'}>
+                        Cancel
+                    </Button>
+                ) : (
+                    <Button onClick={handleConvertAll} variant={'secondary'} className={'font-normal xl:text-base xl:h-10 xl:px-5'}>
+                        Convert All
+                    </Button>
+                )}
             </div>
             {useVirtual ? (
                 <div ref={scrollRef} style={{ height: LIST_HEIGHT, overflowY: 'auto', scrollbarWidth: 'none' }}>

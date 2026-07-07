@@ -1,6 +1,6 @@
 import type { ConversionEngine } from './ConversionEngine'
 import type { ConversionOptions } from '@/types'
-import { getExtension } from '@/utils/fileUtils'
+import { getExtension, fileKey } from '@/utils/fileUtils'
 
 export const AUDIO_INPUT_EXTENSIONS = [
   'aac',
@@ -47,7 +47,8 @@ export const audioEngine: ConversionEngine = {
     // Prefer the on-disk path (ffmpeg reads it directly); fall back to a buffer for in-memory Files.
     const path = window.electron.getPathForFile(file)
     const source = path || (await file.arrayBuffer())
-    const result = await window.electron.convertAudio(source, sourceExt, targetFormat)
+    const result = await window.electron.convertAudio(source, sourceExt, targetFormat, fileKey(file))
+    if (!result) throw new Error('canceled') // handler returns null when the user cancelled
     return new Blob([result], { type: MIME[targetFormat] ?? 'audio/mpeg' })
   },
 }
