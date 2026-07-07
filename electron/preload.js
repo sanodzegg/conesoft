@@ -1,10 +1,16 @@
-const { contextBridge, ipcRenderer } = require('electron')
+const { contextBridge, ipcRenderer, webUtils } = require('electron')
 
 contextBridge.exposeInMainWorld('electron', {
+  // Resolve a dropped/picked File to its absolute disk path. Replaces the removed
+  // `File.path` (gone in Electron 32); returns '' for in-memory Files with no path.
+  getPathForFile: (file) => {
+    try { return webUtils.getPathForFile(file) || '' } catch { return '' }
+  },
   convert: (buffer, targetFormat, quality, imageOptions) => ipcRenderer.invoke('convert-file', buffer, targetFormat, quality, imageOptions),
   convertDocument: (buffer, targetFormat, sourceFormat) => ipcRenderer.invoke('convert-document', buffer, targetFormat, sourceFormat),
-  convertVideo: (buffer, sourceExt, targetFormat, videoOptions) => ipcRenderer.invoke('convert-video', buffer, sourceExt, targetFormat, videoOptions),
-  convertAudio: (buffer, sourceExt, targetFormat) => ipcRenderer.invoke('convert-audio', buffer, sourceExt, targetFormat),
+  // source may be an absolute path (string) or an ArrayBuffer (in-memory fallback).
+  convertVideo: (source, sourceExt, targetFormat, videoOptions) => ipcRenderer.invoke('convert-video', source, sourceExt, targetFormat, videoOptions),
+  convertAudio: (source, sourceExt, targetFormat) => ipcRenderer.invoke('convert-audio', source, sourceExt, targetFormat),
   convertFavicon: (buffer) => ipcRenderer.invoke('convert-favicon', buffer),
 
   // Bulk converter

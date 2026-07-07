@@ -192,13 +192,16 @@ function registerConvertHandlers() {
     return { ico, pngs: pngBuffers.map((buf, i) => ({ size: FAVICON_SIZES[i], buf })) }
   })
 
-  ipcMain.handle('convert-video', async (_event, buffer, sourceExt, targetFormat, videoOptions = {}) => {
+  ipcMain.handle('convert-video', async (_event, source, sourceExt, targetFormat, videoOptions = {}) => {
     const { width, height, fit } = videoOptions
     const tmpDir = os.tmpdir()
-    const inputPath = path.join(tmpDir, `${randomUUID()}.${sourceExt}`)
     const outputPath = path.join(tmpDir, `${randomUUID()}.${targetFormat}`)
 
-    fs.writeFileSync(inputPath, Buffer.from(buffer))
+    // `source` is either an absolute path (large-file fast path: ffmpeg reads it directly,
+    // no bytes through the renderer) or an ArrayBuffer (in-memory File fallback → temp file).
+    const usePath = typeof source === 'string'
+    const inputPath = usePath ? source : path.join(tmpDir, `${randomUUID()}.${sourceExt}`)
+    if (!usePath) await fs.promises.writeFile(inputPath, Buffer.from(source))
 
     try {
       await new Promise((resolve, reject) => {
@@ -238,25 +241,28 @@ function registerConvertHandlers() {
         cmd.on('end', resolve).on('error', (err, _stdout, stderr) => reject(new Error(stderr || err.message))).run()
       })
 
-      const result = fs.readFileSync(outputPath)
+      const result = await fs.promises.readFile(outputPath)
       return result
     } finally {
-      fs.rmSync(inputPath, { force: true })
-      fs.rmSync(outputPath, { force: true })
+      // Only remove the input temp file if we created it - never delete the user's source path.
+      if (!usePath) await fs.promises.rm(inputPath, { force: true })
+      await fs.promises.rm(outputPath, { force: true })
     }
   })
 
-  ipcMain.handle('convert-audio', async (_event, buffer, sourceExt, targetFormat) => {
+  ipcMain.handle('convert-audio', async (_event, source, sourceExt, targetFormat) => {
     // Map output format aliases to ffmpeg format/container names
     const fmtMap = { m4a: 'ipod', weba: 'webm', ogg: 'ogg', aiff: 'aiff' }
     const ffmpegFmt = fmtMap[targetFormat] || targetFormat
     const outputExt = targetFormat === 'm4a' ? 'm4a' : targetFormat === 'weba' ? 'weba' : targetFormat
 
     const tmpDir = os.tmpdir()
-    const inputPath = path.join(tmpDir, `${randomUUID()}.${sourceExt}`)
     const outputPath = path.join(tmpDir, `${randomUUID()}.${outputExt}`)
 
-    fs.writeFileSync(inputPath, Buffer.from(buffer))
+    // `source` is either an absolute path (ffmpeg reads it directly) or an ArrayBuffer fallback.
+    const usePath = typeof source === 'string'
+    const inputPath = usePath ? source : path.join(tmpDir, `${randomUUID()}.${sourceExt}`)
+    if (!usePath) await fs.promises.writeFile(inputPath, Buffer.from(source))
 
     try {
       await new Promise((resolve, reject) => {
@@ -270,11 +276,11 @@ function registerConvertHandlers() {
           .run()
       })
 
-      const result = fs.readFileSync(outputPath)
+      const result = await fs.promises.readFile(outputPath)
       return result
     } finally {
-      fs.rmSync(inputPath, { force: true })
-      fs.rmSync(outputPath, { force: true })
+      if (!usePath) await fs.promises.rm(inputPath, { force: true })
+      await fs.promises.rm(outputPath, { force: true })
     }
   })
 }

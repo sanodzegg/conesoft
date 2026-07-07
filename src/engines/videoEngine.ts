@@ -16,8 +16,11 @@ export const videoEngine: ConversionEngine = {
 
   async convert(file: File, targetFormat: string, options: ConversionOptions): Promise<Blob> {
     const sourceExt = getExtension(file)
-    const buffer = await file.arrayBuffer()
-    const result = await window.electron.convertVideo(buffer, sourceExt, targetFormat, {
+    // Prefer the on-disk path so ffmpeg reads the file directly - streaming a multi-GB
+    // video through arrayBuffer()+IPC would OOM. Fall back to a buffer for in-memory Files.
+    const path = window.electron.getPathForFile(file)
+    const source = path || (await file.arrayBuffer())
+    const result = await window.electron.convertVideo(source, sourceExt, targetFormat, {
       width: options.width,
       height: options.height,
       fit: options.fit,

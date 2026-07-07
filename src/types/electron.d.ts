@@ -21,10 +21,13 @@ declare interface Window {
   electron: {
     // Node Buffers come back over IPC as Uint8Array views over a regular ArrayBuffer
     // (never SharedArrayBuffer), so they are valid BlobParts - pass them straight to new Blob([...]).
+    // Resolve a dropped/picked File to its absolute disk path ('' if in-memory / no path).
+    getPathForFile: (file: File) => string
     convert: (buffer: ArrayBuffer, targetFormat: string, quality?: number, imageOptions?: { width?: number; height?: number; fit?: string; keepMetadata?: boolean }) => Promise<Uint8Array<ArrayBuffer>>
     convertDocument: (buffer: ArrayBuffer, targetFormat: string, sourceFormat: string) => Promise<Uint8Array<ArrayBuffer>>
-    convertVideo: (buffer: ArrayBuffer, sourceExt: string, targetFormat: string, videoOptions?: { width?: number; height?: number; fit?: string }) => Promise<Uint8Array<ArrayBuffer>>
-    convertAudio: (buffer: ArrayBuffer, sourceExt: string, targetFormat: string) => Promise<Uint8Array<ArrayBuffer>>
+    // source: absolute path (string) for large files, or ArrayBuffer for in-memory Files.
+    convertVideo: (source: string | ArrayBuffer, sourceExt: string, targetFormat: string, videoOptions?: { width?: number; height?: number; fit?: string }) => Promise<Uint8Array<ArrayBuffer>>
+    convertAudio: (source: string | ArrayBuffer, sourceExt: string, targetFormat: string) => Promise<Uint8Array<ArrayBuffer>>
     convertFavicon: (buffer: ArrayBuffer) => Promise<{ ico: ArrayBuffer; pngs: { size: number; buf: ArrayBuffer }[] }>
 
     bulkPickFolder: () => Promise<string | null>
