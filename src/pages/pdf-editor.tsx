@@ -47,7 +47,10 @@ function DropZone({ onFile }: { onFile: (file: PdfFile) => void }) {
     setDragging(false)
     const file = e.dataTransfer.files[0]
     if (!file || !file.name.endsWith('.pdf')) return
-    onFile({ path: (file as any).path, name: file.name, size: file.size })
+    // File.path was removed in Electron 32 - resolve the disk path via webUtils instead.
+    const path = window.electron.getPathForFile(file)
+    if (!path) return
+    onFile({ path, name: file.name, size: file.size })
   }
 
   return (

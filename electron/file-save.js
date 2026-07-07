@@ -13,9 +13,28 @@ function registerFileSaveHandlers(mainWindow) {
   })
 
   ipcMain.handle('save-converted-file', async (_event, folderPath, fileName, buffer) => {
-    const dest = path.join(folderPath, fileName)
-    fs.writeFileSync(dest, Buffer.from(buffer))
-    return dest
+    const data = Buffer.from(buffer)
+    const ext = path.extname(fileName)
+    const base = path.basename(fileName, ext)
+    // Never overwrite: if the name is taken, auto-suffix "name (1).ext", "name (2).ext", ...
+    // The 'wx' flag makes the existence check + write atomic, so two auto-saves racing to the
+    // same name can't clobber each other - the loser gets EEXIST and takes the next suffix.
+    for (let i = 0; i < 1000; i++) {
+      const candidate = i === 0
+        ? path.join(folderPath, fileName)
+        : path.join(folderPath, `${base} (${i})${ext}`)
+      try {
+        await fs.promises.writeFile(candidate, data, { flag: 'wx' })
+        return candidate
+      } catch (err) {
+        if (err.code === 'EEXIST') continue
+        throw err
+      }
+    }
+    // Pathological fallback (1000 collisions): a timestamped name is effectively unique.
+    const fallback = path.join(folderPath, `${base}-${Date.now()}${ext}`)
+    await fs.promises.writeFile(fallback, data)
+    return fallback
   })
 
   // Save an in-memory file (image editor export, favicon download, etc.) via a native save

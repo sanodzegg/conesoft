@@ -39,8 +39,8 @@ video/audio handlers accept path|buffer, engines prefer path). Async I/O folded 
 handlers. **Verified at runtime:** converting a 1.3 GB `.mkv` logged `disk path (fast)` — ffmpeg
 read straight from disk, no bytes through the renderer heap. Return-trip still buffers the output
 (async `readFile`) — acceptable first pass; full output streaming deferred. Image path left
-untouched (smaller; later pass). Remaining sub-task: PDF-editor drag-drop still uses the dead
-`file.path` — fix with the same `getPathForFile` plumbing (tracked below in the Item 1 sidebar).
+untouched (smaller; later pass). Sidebar sub-task **DONE**: PDF-editor drag-drop now resolves
+the path via `getPathForFile` (`src/pages/pdf-editor.tsx:50`) instead of the dead `file.path`.
 
 **Priority:** Highest. This is the crash that most threatens the reliability claim.
 
@@ -170,7 +170,10 @@ stuck. Separately, the user cannot **abort** a running batch (homepage `convertA
 
 ## Item 4 — Auto-download silently overwrites on filename collision
 
-**Status:** TODO (independent — can be done anytime; smallest self-contained fix)
+**Status:** DONE (2026-07-08) — `save-converted-file` now never overwrites: it auto-suffixes
+`name (1).ext`, `name (2).ext`, … using the `wx` (exclusive-create) flag so racing auto-saves
+can't clobber each other, and returns the actual path written. Async I/O. Needs a quick runtime
+check (convert two sources that map to the same output name → both land).
 
 **Problem.** Auto-download writes `f.name` with a bare `writeFileSync` and no collision check.
 Converting `photo.jpg` **and** `photo.png` both to WebP produces two `photo.webp` → the second
