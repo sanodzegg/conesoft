@@ -28,19 +28,24 @@ function isSameFormat(filePath, targetFormat) {
   return false
 }
 
-// Recursively collect all image paths in a directory
-function collectImages(dir) {
+// Recursively collect all image paths in a directory. Async so a large tree doesn't block the
+// main process (and with it the whole UI) - this was the scan's freeze culprit.
+async function collectImages(dir) {
   const results = []
-  const entries = fs.readdirSync(dir, { withFileTypes: true })
+  const entries = await fs.promises.readdir(dir, { withFileTypes: true })
   for (const entry of entries) {
     const full = path.join(dir, entry.name)
     if (entry.isDirectory()) {
-      results.push(...collectImages(full))
+      results.push(...await collectImages(full))
     } else if (entry.isFile() && isImage(full)) {
       results.push(full)
     }
   }
   return results
+}
+
+async function pathExists(p) {
+  try { await fs.promises.access(p); return true } catch { return false }
 }
 
 async function convertFile(srcPath, targetFormat, quality, outputMode, deleteOriginal, allowOverwrite = false, customOutputFolder = null) {
@@ -50,11 +55,11 @@ async function convertFile(srcPath, targetFormat, quality, outputMode, deleteOri
 
   let destPath
   if (customOutputFolder) {
-    fs.mkdirSync(customOutputFolder, { recursive: true })
+    await fs.promises.mkdir(customOutputFolder, { recursive: true })
     destPath = path.join(customOutputFolder, base + ext)
   } else if (outputMode === 'subfolder') {
     const outDir = path.join(dir, 'converted')
-    fs.mkdirSync(outDir, { recursive: true })
+    await fs.promises.mkdir(outDir, { recursive: true })
     destPath = path.join(outDir, base + ext)
   } else {
     destPath = path.join(dir, base + ext)
@@ -66,11 +71,11 @@ async function convertFile(srcPath, targetFormat, quality, outputMode, deleteOri
   }
 
   // Skip if output already exists - another source file with the same base name was already converted there
-  if (!allowOverwrite && fs.existsSync(destPath)) {
+  if (!allowOverwrite && await pathExists(destPath)) {
     throw new Error(`Output ${base}${ext} already exists - rename conflicting source files first`)
   }
 
-  const srcStat = fs.statSync(srcPath)
+  const srcStat = await fs.promises.stat(srcPath)
   const originalSize = srcStat.size
 
   const srcExt = path.extname(srcPath).toLowerCase()
@@ -80,18 +85,18 @@ async function convertFile(srcPath, targetFormat, quality, outputMode, deleteOri
 
   // sharp can't decode HEIC/HEIF (HEVC) - decode to a PNG buffer first, like the homepage
   // engine. Everything else streams straight from the path (cheaper than buffering).
-  const input = isHeic ? await decodeHeic(fs.readFileSync(srcPath)) : srcPath
+  const input = isHeic ? await decodeHeic(await fs.promises.readFile(srcPath)) : srcPath
 
   await sharp(input, isSvg ? { density: 300 } : {})
     .toFormat(sharpFormat, sharpFormatOptions(sharpFormat, quality))
     .toFile(destPath)
 
-  const destStat = fs.statSync(destPath)
+  const destStat = await fs.promises.stat(destPath)
   const convertedSize = destStat.size
   const savedBytes = originalSize - convertedSize
 
   if (deleteOriginal && srcPath !== destPath) {
-    fs.unlinkSync(srcPath)
+    await fs.promises.unlink(srcPath)
   }
 
   return {
@@ -119,18 +124,18 @@ function registerBulkConvertHandlers(mainWindow) {
 
   // Scan folder and return image list with sizes (no conversion yet)
   ipcMain.handle('bulk-scan-folder', async (_event, { folderPath, targetFormat }) => {
-    const images = collectImages(folderPath)
-    return images.map(p => ({
+    const images = await collectImages(folderPath)
+    return Promise.all(images.map(async p => ({
       path: p,
       relativePath: path.relative(folderPath, p),
-      size: fs.statSync(p).size,
+      size: (await fs.promises.stat(p)).size,
       sameFormat: targetFormat ? isSameFormat(p, targetFormat) : false,
-    }))
+    })))
   })
 
   // Convert all images in a folder
   ipcMain.handle('bulk-convert-folder', async (event, { folderPath, targetFormat, quality, outputMode, deleteOriginal, customOutputFolder }) => {
-    const allImages = collectImages(folderPath)
+    const allImages = await collectImages(folderPath)
     // Skip files already in the target format (alongside mode would produce src === dest)
     const images = (outputMode === 'subfolder' || customOutputFolder)
       ? allImages
@@ -175,7 +180,7 @@ function registerBulkConvertHandlers(mainWindow) {
 
       // File must exist, be an image, and not already be the target format
       try {
-        const stat = fs.statSync(fullPath)
+        const stat = await fs.promises.stat(fullPath)
         if (!stat.isFile() || !isImage(fullPath)) { inProgress.delete(fullPath); return }
         if (path.extname(fullPath).toLowerCase() === '.' + targetFormat) { inProgress.delete(fullPath); return }
       } catch {
