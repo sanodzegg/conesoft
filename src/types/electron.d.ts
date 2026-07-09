@@ -118,6 +118,16 @@ declare interface Window {
       }[]
     }) => Promise<{ success: boolean; error?: string }>
 
+    // PDF converters (image <-> pdf)
+    pdfConvertPickImages: () => Promise<{ canceled: boolean; files: { path: string; name: string; size: number }[] }>
+    pdfConvertImagesToPdf: (opts: {
+      images: { path: string }[]
+      options: { pageSize: 'auto' | 'a4' | 'letter'; orientation: 'portrait' | 'landscape'; margin: number }
+    }) => Promise<{ success: boolean; pageCount?: number; error?: string }>
+    pdfConvertImagesToPdfSave: () => Promise<{ canceled: boolean; filePath?: string }>
+    pdfConvertReset: () => Promise<{ ok: boolean }>
+    pdfConvertPickPdf: () => Promise<{ canceled: true } | { canceled: false; name: string; size: number; data: number[] }>
+
     // Tray / notifications
     showNotification: (title: string, body: string) => void
 

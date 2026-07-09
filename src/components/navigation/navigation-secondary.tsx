@@ -10,7 +10,7 @@ import {
     SheetTrigger,
 } from "../ui/sheet";
 import { cn } from "@/lib/utils";
-import { Camera, ChevronRight, Crop, FileDown, FileEdit, FilePlus, FolderInput, FolderSync, Gauge, Globe, ImageIcon, LayoutGrid, Lock, PenLine, Pipette, Star, Tag, TextCursorInput, User, WifiOff, Zap } from "lucide-react";
+import { Camera, ChevronRight, Crop, FileDown, FileEdit, FileImage, FilePlus, FolderInput, FolderSync, Gauge, Globe, ImageIcon, Images, LayoutGrid, Lock, PenLine, Pipette, Star, Tag, TextCursorInput, User, WifiOff, Zap } from "lucide-react";
 import { useAuth } from "@/lib/useAuth";
 import { isPaidPlan } from "@/store/useAuthStore";
 import { PRICING_DISMISSED_KEY } from "./navigation";
@@ -196,6 +196,20 @@ const extensions: Extension[] = [
                 description: 'Combine multiple PDFs into one',
                 href: '/extensions/pdf-merge',
                 icon: <FilePlus className="size-5" />,
+                proOnly: true,
+            },
+            {
+                title: 'Images to PDF',
+                description: 'Combine images into a single PDF',
+                href: '/extensions/images-to-pdf',
+                icon: <FileImage className="size-5" />,
+                proOnly: true,
+            },
+            {
+                title: 'PDF to Images',
+                description: 'Export PDF pages as PNG, JPG, or WebP',
+                href: '/extensions/pdf-to-images',
+                icon: <Images className="size-5" />,
                 proOnly: true,
             },
         ],

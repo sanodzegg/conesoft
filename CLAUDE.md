@@ -50,6 +50,7 @@ electron/
   bulk-convert.js      - bulk folder conversion + fs.watch watch mode
   pdf-tools.js         - PDF merge
   pdf-editor.js        - PDF page ops, watermark, form fill, burn annotations
+  pdf-convert.js       - image↔PDF converters: images→PDF (pdf-lib+sharp) + stateless PDF picker
   website-pdf.js       - Playwright website→PDF (shares browser w/ screenshot)
   screenshot.js        - Playwright screenshot + owns the shared browser instance
   lighthouse.js        - Lighthouse runner (bundled dep; forks lighthouse-worker.js)
@@ -239,20 +240,21 @@ Tokens are spent via `spendTokens` (reserve up front, `refund()` on failure) in 
   - **Image editor** export (`crop-editor.tsx` → `exportCanvas` returns `'saved' | 'canceled' |
     'failed'`) - reserves before export, refunds on cancel (silent) or failure (toast). **Open to
     all plans**, so trial **and** limited are metered (paid ungated).
-- **PDF editor + merge saves** - **document tokens only**, via the `usePdfSaveMeter` hook.
-  `spendTokens` takes an options arg `{ cost?, countCategory? }`; PDF saves pass
-  `countCategory:false`, so they spend tokens but do **not** bump the per-category "Documents"
-  analytics count (that tally is for actual document *conversions* only). Both tools are
-  **session-priced**: the **first save of a session = 5**,
-  **every later save = 2**, regardless of how much was edited or re-merged in between. Two separate
-  module-level flags (`editorSavedOnce` / `mergeSavedOnce`) so the tools don't affect each other.
-  *Editor:* `reserveEditorSave()` / `markEditorSaved()`; `resetEditorSaveSession()` fires when a
-  file is opened/closed (`pdf-editor.tsx`). *Merge:* `reserveMergeSave()` / `markMergeSaved()`;
-  `resetMergeSaveSession()` fires on page mount and on Reset (`pdf-merge.tsx`) - so re-merging
-  different files in the same visit still bills as a re-save (2). Reserve happens *before* the edit
-  op so an out-of-budget user is blocked before any work; refund on op failure or a canceled save
-  dialog. Both PDF tools are `proOnly` (nav-locked for limited + `ProRoute`), so in practice only
-  trial users are metered here; paid is ungated.
+- **PDF saves** (editor, merge, images→pdf, pdf→images) - **document tokens only**, via the
+  `usePdfSaveMeter` hook. `spendTokens` takes an options arg `{ cost?, countCategory? }`; PDF saves
+  pass `countCategory:false`, so they spend tokens but do **not** bump the per-category "Documents"
+  analytics count (that tally is for actual document *conversions* only). All four are
+  **session-priced**: the **first save of a session = 5**, **every later save = 2**, regardless of
+  how much was edited / re-merged / re-rendered in between. **Four** module-level flags
+  (`editorSavedOnce` / `mergeSavedOnce` / `imagesToPdfSavedOnce` / `pdfToImagesSavedOnce`) so the
+  tools don't affect each other's pricing. Each tool has matching `reserve*Save()` / `mark*Saved()`
+  / `reset*SaveSession()` fns:
+  *Editor:* reset fires when a file is opened/closed (`pdf-editor.tsx`).
+  *Merge / Images→PDF / PDF→Images:* reset fires on page mount and on Reset - so redoing a
+  different job in the same visit still bills as a re-save (2). For PDF→Images one save = one charge
+  whether it's a single image or an N-page zip. Reserve happens *before* the work so an out-of-budget
+  user is blocked first; refund on op failure or a canceled save dialog. All are `proOnly` (nav-locked
+  for limited + `ProRoute`), so in practice only trial users are metered here; paid is ungated.
 - **Web tools** (all `countCategory:false`, so no per-category count - not conversions):
   - **Screenshot** (`use-screenshot.ts` `save`) and **Website PDF** (`website-pdf.tsx` `save`) charge
     on **download**, not capture/generate (preview is free), and are **session-priced per page visit**
@@ -309,6 +311,13 @@ is the single source of truth for "paid".
 - **PDF editor** (`proOnly` - nav-locked for limited + `ProRoute`) - page reorder/rotate/delete,
   watermark (text/image), form fill, burn annotations (highlight/draw/arrow/text). Renders via
   `pdfjs-dist`.
+- **Images to PDF** (`proOnly`) - pick images, drag-reorder, page size (Auto/A4/Letter) +
+  orientation + margin. `sharp` normalizes any input format then pdf-lib embeds (PNG if the image
+  has alpha, else JPEG q90). `electron/pdf-convert.js` + `src/pages/images-to-pdf.tsx`.
+- **PDF to Images** (`proOnly`) - pdfjs renders each page to canvas → PNG/JPG/WebP (quality +
+  resolution 1.5/2/3×). 1 page = single image, N pages = zip (JSZip); both save via
+  `saveImageBuffer` (cancel→refund). Preview grid of the first ≤30 pages. Renderer-side except a
+  stateless `pdf-convert-pick-pdf` (returns bytes, no singleton). `src/pages/pdf-to-images.tsx`.
 - **Website PDF** / **Website Screenshot** - Playwright; share one browser instance;
   block trackers, scroll to trigger lazy media, replace videos, strip fixed/chat widgets.
 - **Lighthouse** - performance/a11y/best-practices/SEO audit, desktop+mobile in parallel.
@@ -319,6 +328,23 @@ is the single source of truth for "paid".
 - **Settings** - image-quality default, per-engine default formats, default output
   folder; synced to Supabase when signed in (conflict dialog on divergence).
 - **Pricing / Account** - Paddle checkout, plan + renewal display, cancel flow.
+
+### PDF tooling — licensing & roadmap  ⚠️
+
+All PDF work is built on the **free, permissively-licensed** stack we already ship: **pdf-lib**
+(MIT), **pdfjs-dist** (Apache 2.0), **pdfkit** (MIT), **sharp**. No commercial SDK, no license fee.
+
+- ⚠️ **Never** add **Ghostscript / iText / MuPDF** - they're AGPL/GPL and a closed-source
+  commercial app needs a paid Artifex/Apryse license. **Compression, when built, goes through
+  `sharp`** (re-encode the embedded images), *not* Ghostscript.
+- Safe to add when their features land: **qpdf** (Apache 2.0 - password/encrypt) and
+  **tesseract.js** (Apache 2.0 - on-device OCR, fits the local-first story).
+- **Shipped:** Editor, Merge, Images→PDF, PDF→Images.
+- **Planned** (effort-to-impact order): split / extract pages · page numbers / header-footer ·
+  crop · sign (draw → embed image) · compress (sharp) · OCR (tesseract) · password (qpdf).
+- **Deliberately NOT doing** (needs a commercial SDK, or unsafe to do free): layout-preserving
+  PDF→Word/Excel (we stay text-only), in-place text editing, true redaction (a fake black-box
+  redaction leaves the text underneath - don't ship it until we can remove bytes properly).
 
 ---
 

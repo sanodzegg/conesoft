@@ -17,8 +17,12 @@ import { toast } from 'sonner'
 // Module-level singletons - each tool is single-document / single-window.
 let editorSavedOnce = false
 let mergeSavedOnce = false
+let imagesToPdfSavedOnce = false
+let pdfToImagesSavedOnce = false
 export function resetEditorSaveSession() { editorSavedOnce = false }
 export function resetMergeSaveSession() { mergeSavedOnce = false }
+export function resetImagesToPdfSaveSession() { imagesToPdfSavedOnce = false }
+export function resetPdfToImagesSaveSession() { pdfToImagesSavedOnce = false }
 
 const NEW_DOC_COST = 5
 const RESAVE_COST = 2
@@ -47,9 +51,13 @@ export function usePdfSaveMeter() {
         // 5 for the first save of the document this session, 2 for each subsequent save.
         reserveEditorSave() { return reserve(editorSavedOnce ? RESAVE_COST : NEW_DOC_COST) },
         reserveMergeSave() { return reserve(mergeSavedOnce ? RESAVE_COST : NEW_DOC_COST) },
+        reserveImagesToPdfSave() { return reserve(imagesToPdfSavedOnce ? RESAVE_COST : NEW_DOC_COST) },
+        reservePdfToImagesSave() { return reserve(pdfToImagesSavedOnce ? RESAVE_COST : NEW_DOC_COST) },
         // Mark the document saved so later saves this session bill as re-saves (2).
         markEditorSaved() { editorSavedOnce = true },
         markMergeSaved() { mergeSavedOnce = true },
+        markImagesToPdfSaved() { imagesToPdfSavedOnce = true },
+        markPdfToImagesSaved() { pdfToImagesSavedOnce = true },
         // Call once the file is actually written (triggers server sync + exhaustion flip).
         onSaved() { onConversionSuccess('document') },
     }

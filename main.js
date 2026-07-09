@@ -29,6 +29,7 @@ const { registerFileSaveHandlers } = require('./electron/file-save')
 const { registerBatchRenameHandlers } = require('./electron/batch-rename')
 const { registerLighthouseHandlers } = require('./electron/lighthouse')
 const { registerPdfEditorHandlers } = require('./electron/pdf-editor')
+const { registerPdfConvertHandlers } = require('./electron/pdf-convert')
 
 const isDev = !app.isPackaged
 
@@ -115,6 +116,7 @@ if (gotLock) {
     registerBatchRenameHandlers()
     registerLighthouseHandlers(mainWindow)
     registerPdfEditorHandlers(mainWindow)
+    registerPdfConvertHandlers(mainWindow)
   })
 }
 

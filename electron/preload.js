@@ -73,6 +73,13 @@ contextBridge.exposeInMainWorld('electron', {
   pdfEditorFillForms: (opts) => ipcRenderer.invoke('pdf-editor-fill-forms', opts),
   pdfEditorBurnAnnotations: (opts) => ipcRenderer.invoke('pdf-editor-burn-annotations', opts),
 
+  // PDF converters (image <-> pdf)
+  pdfConvertPickImages: () => ipcRenderer.invoke('pdf-convert-pick-images'),
+  pdfConvertImagesToPdf: (opts) => ipcRenderer.invoke('pdf-convert-images-to-pdf', opts),
+  pdfConvertImagesToPdfSave: () => ipcRenderer.invoke('pdf-convert-images-to-pdf-save'),
+  pdfConvertReset: () => ipcRenderer.invoke('pdf-convert-reset'),
+  pdfConvertPickPdf: () => ipcRenderer.invoke('pdf-convert-pick-pdf'),
+
   // Tray / notifications
   showNotification: (title, body) => ipcRenderer.send('show-notification', { title, body }),
 
