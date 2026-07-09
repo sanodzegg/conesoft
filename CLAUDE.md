@@ -1,8 +1,7 @@
 # Conesoft - Project Reference
 
-Reference for AI-assisted development sessions. Reflects the **actual code** as of the
-last audit (see `TODO.md` for open work). When in doubt, trust the code over this file
-and update this file when you learn something non-obvious.
+Reference for AI-assisted development sessions. Reflects the **actual code**. When in doubt,
+trust the code over this file and update this file when you learn something non-obvious.
 
 Current version: **1.10.0** (`package.json`)
 
@@ -216,7 +215,9 @@ reverses the exact split. Reservation is a synchronous localStorage RMW, so imag
   `users`-table Realtime subscription in `useAuthStore`. The old client-side
   `reconcilePlanWithCounts` is gone. ⚠️ Caveat: sign-in still `max`-merges `tokens_used`, so
   an admin reset only "sticks" while the user's app is **running**; reset while it's closed
-  can be re-inflated on next sign-in (accepted - see `TODO.md`).
+  can be re-inflated on next sign-in. **Accepted limitation** (operational workaround: keep the
+  app open during a reset). Proper fix if it ever matters: recency-based merge on sign-in (trust
+  whichever side changed most recently - server `updated_at` vs last local write - not blind `max`).
 
 ### ⚠️ Where metering is wired (and where it ISN'T)
 Tokens are spent via `spendTokens` (reserve up front, `refund()` on failure) in these places:
@@ -285,7 +286,7 @@ and renders locked (Lock icon, not clickable) for any non-paid plan; the route i
 `navigation-secondary.tsx` is the shared lock predicate: `(isLimited && proOnly) || (!isPaid &&
 paidOnly)` - so `proOnly` locks only `limited` (trial still reaches those tools, e.g. the metered
 web tools + PDF editor/merge), while `paidOnly` also locks `trial`. `isPaidPlan(plan)` (`useAuthStore`)
-is the single source of truth for "paid". See `TODO.md` #1.
+is the single source of truth for "paid".
 
 ---
 
@@ -445,3 +446,21 @@ is the single source of truth for "paid". See `TODO.md` #1.
 - `pdfjs-dist` v5 `page.render(...)` requires a `canvas` field alongside `canvasContext`.
 - `fileKey(file)` = `name-size-lastModified` - the identity used everywhere for dedupe/state.
 - PDF main-process state (`editorBuffer`, `mergedBuffer`) is a module-level singleton (single-window assumption).
+
+---
+
+## Open cleanups (low priority, unblocked)
+
+Small, non-urgent debt - none block release. (Pre-release verification gates and the Paddle
+webhook deploy are all done; macOS distribution is deferred - not shipping Mac for now; the
+Microsoft Store appx build is **shipped**.)
+
+- **Two `formatBytes` implementations** - `src/utils/fileUtils.ts` vs
+  `src/components/bulk-converter/format-bytes.ts`. Consolidate to one.
+- **`URL.revokeObjectURL` immediately after `a.click()`** (`converted.tsx`) - works in Chromium
+  but brittle; revoke after a tick instead.
+- **UsageCard daily bars are non-reactive** - `getDailyCounts()` is read at render, not from a
+  reactive store, so "Usage today" can show stale numbers until another re-render. Move daily
+  counts into a reactive store if it matters. *(Touches the token/usage subsystem - tread carefully.)*
+- **`screenshot-browser-status` says "downloading"** when it's actually launching (nothing
+  downloads) - minor label fix (touches the status type + UI).

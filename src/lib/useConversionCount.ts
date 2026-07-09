@@ -16,7 +16,8 @@ const STORAGE_KEY = 'conesoft_conversion_counts'
 const DAILY_STORAGE_KEY = 'conesoft_daily_counts'
 
 // `tokens_used` is the single quota currency. Per-category counts are kept only for
-// analytics/bonuses and are NOT arithmetically linked to tokens_used (see TODO.md spec).
+// analytics/bonuses and are NOT arithmetically linked to tokens_used (see CLAUDE.md →
+// "Conversion Counting & Plans").
 // Token cost per conversion, applied going forward:
 export const TOKEN_COSTS: Record<EngineType, number> = {
     image: 1,

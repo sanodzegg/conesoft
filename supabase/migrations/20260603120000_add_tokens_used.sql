@@ -1,4 +1,4 @@
--- tokens_used: explicit, monotonic lifetime quota currency (see CLAUDE.md / TODO.md token spec).
+-- tokens_used: explicit, monotonic lifetime quota currency (see CLAUDE.md token spec).
 -- Source of truth for the trial gate; decoupled from the per-category counts, which are kept
 -- for analytics/bonuses. Backfilled once from existing counts at the current token costs:
 -- image = 1, document = 5, video = 5, audio = 5.
