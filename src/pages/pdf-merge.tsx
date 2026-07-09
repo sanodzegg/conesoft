@@ -119,7 +119,7 @@ export default function PdfMerge() {
           <h2 className="text-2xl font-body font-semibold text-foreground">Merge PDFs</h2>
           <p className="text-sm text-muted-foreground mt-1">Combine multiple PDF files into one.</p>
         </div>
-        <div className="flex items-start gap-2.5 shrink-0">
+        <div className="flex items-end gap-2.5 shrink-0">
           {(isDone || isError) && (
             <Button variant="outline" size="sm" onClick={reset} className="gap-1.5 shrink-0">
               <RotateCcw className="size-3.5" />

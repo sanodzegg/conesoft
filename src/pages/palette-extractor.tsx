@@ -223,7 +223,7 @@ export default function PaletteExtractor() {
           <h2 className="text-2xl xl:text-3xl font-body font-semibold text-foreground">Palette Extractor</h2>
           <p className="text-sm xl:text-base text-muted-foreground mt-1">Extract dominant colors from any image.</p>
         </div>
-        <div className="flex items-start gap-2.5 shrink-0">
+        <div className="flex items-end gap-2.5 shrink-0">
           {imageSrc && (
             <Button variant="outline" size="sm" onClick={reset} className="gap-1.5 shrink-0 xl:text-sm xl:h-9">
               <RotateCcw className="size-3.5 xl:size-4" />

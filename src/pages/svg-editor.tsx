@@ -229,11 +229,11 @@ export default function SvgEditor() {
             <div className="mb-6 xl:mb-7 2xl:mb-8 flex items-start justify-between gap-4">
                 <div>
                     <h2 className="text-2xl xl:text-3xl font-body font-semibold text-foreground">SVG Editor</h2>
-                    <p className="text-sm xl:text-base text-muted-foreground mt-1">
+                    <p className="text-sm xl:text-base text-muted-foreground mt-1 max-w-sm">
                         Edit, optimize, and preview SVGs - export as React, Vue, Angular, or data URIs.
                     </p>
                 </div>
-                <div className="flex items-start gap-2.5 shrink-0">
+                <div className="flex items-end gap-2.5 shrink-0">
                     <Button variant="outline" size="sm" className="xl:text-sm xl:h-9" onClick={() => setCode(null)}>
                         <RotateCcw className="size-3.5 xl:size-4 mr-1.5" />
                         New SVG

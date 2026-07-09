@@ -167,7 +167,7 @@ export default function WebsitePdf() {
           <h2 className="text-2xl font-body font-semibold text-foreground">Download as PDF</h2>
           <p className="text-sm text-muted-foreground mt-1">Save any webpage as a PDF.</p>
         </div>
-        <div className="flex items-start gap-2.5 shrink-0">
+        <div className="flex items-end gap-2.5 shrink-0">
           {(isDone || isError) && (
             <Button variant="outline" size="sm" onClick={reset} className="gap-1.5 shrink-0">
               <RotateCcw className="size-3.5" /> Reset
