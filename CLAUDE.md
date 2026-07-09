@@ -4,7 +4,7 @@ Reference for AI-assisted development sessions. Reflects the **actual code** as 
 last audit (see `TODO.md` for open work). When in doubt, trust the code over this file
 and update this file when you learn something non-obvious.
 
-Current version: **1.9.1** (`package.json`)
+Current version: **1.10.0** (`package.json`)
 
 ---
 
@@ -110,11 +110,29 @@ handler returns a Node `Buffer` → arrives in the renderer as a `Uint8Array<Arr
 → wrap with **`new Blob([result])`** (not `result.buffer` - that can include bytes
 outside the view). Types live in `src/types/electron.d.ts`.
 
+> **Video/audio don't buffer the source.** Instead of `arrayBuffer()`, the video/audio engines
+> resolve the File's real disk path via `window.electron.getPathForFile(file)` (Electron 32+
+> removed `File.path`; `webUtils.getPathForFile` is exposed in `preload.js`) and pass **the path**
+> to `convertVideo`/`convertAudio` so ffmpeg reads straight from disk - a multi-GB video never
+> enters the renderer heap. They fall back to an `arrayBuffer` only for in-memory Files with no
+> path. The handler's first arg is therefore `string | ArrayBuffer`. They also take a **`jobId`**
+> (the renderer's `fileKey`) for cancellation and **resolve `null`** when the user cancelled -
+> the engine turns that into a thrown `'canceled'`. `getPathForFile` is also how the PDF-editor
+> drag-drop resolves its path.
+
 **Image conversion gotchas (`electron/convert.js`):**
 - `normalizeFormat`: jfif→jpeg, tif→tiff, heic/heif→heif.
 - `sharpFormatOptions`: PNG ignores quality (maps to compressionLevel); WebP at q100 → lossless; GIF ignores quality.
 - HEIC sniffing reads the `ftyp` box; an **AVIF guard** prevents AVIF (which can share the `mif1` brand) from being routed to the HEVC-only `heic-convert`. This lives in the exported `decodeHeic(buf)` helper (returns the buffer untouched when it isn't HEVC-HEIC), shared by the homepage handler **and** `bulk-convert.js` so both decode HEIC identically.
-- Video/audio write temp files to `os.tmpdir()` with `randomUUID` and clean them in `finally`.
+- Video/audio write the **output** to a temp file in `os.tmpdir()` (`randomUUID`), cleaned in `finally`. The **input** is the user's real path when available (see IPC contract above), so only the buffer-fallback path writes an input temp file - the `finally` deletes the input temp file **only if we created it** (never the user's source). All I/O is async `fs.promises` (no `*Sync` on the main thread).
+
+**Reliability guards (all in `electron/convert.js` unless noted, added in the 1.10.0 pass):**
+- **Content-sniff mismatch guards:** `sniffContainer(buf)` (magic bytes) catches a file whose extension lies - a `.pdf` that's really a docx fails with a clear "looks like a …" message instead of a pdf-parse/mammoth stack trace; a document mislabeled as an image is bounced to the Document converter. (Sharp already auto-detects genuine image-vs-image mislabels, so those just convert.)
+- **Friendly ffmpeg errors:** `makeMediaError` logs full stderr to the console but rejects with a short human message (mapping missing-file / unsupported-codec / corrupt-data signatures). Never surface raw stderr.
+- **Empty-output validation:** image/video/audio throw if the result buffer is `length === 0`, so a zero-byte "success" fails cleanly and its token is refunded (never counted). Document is exempt (a text-layer-less PDF legitimately extracts to empty text).
+- **ffmpeg stall watchdog:** `runFfmpeg(cmd, kind, jobId)` kills the process after `STALL_TIMEOUT_MS` (90s) of **no activity** (start/progress/stderr) - based on time-since-last-progress, so a slow-but-advancing large job is never killed, only a stuck one. Active jobs live in `activeJobs` (keyed by `jobId`) so a user cancel can kill them.
+- **Cancellation:** batch + per-file conversions are cancelable. `conversionService.ts` owns the run's `AbortController` at **module scope** (not a component ref) and exposes `cancelActiveConversions()`, so **every** entry point (Convert All **and** the per-file button, both routed through `convertAll`) is cancelable via the one Cancel button. On cancel the in-flight ffmpeg is killed (`cancel-conversion` IPC → `cmd._canceled` → quiet `resolve('canceled')`, no scary rejected-handler log), reserved tokens are **refunded**, and files settle as "Canceled" so the batch counter always completes. Sharp (images) can't be aborted - in-flight images finish, but no new files dispatch after cancel.
+- **Auto-download never overwrites:** `save-converted-file` (`electron/file-save.js`) auto-suffixes `name (1).ext`, … via an atomic `wx`-flag write, so colliding output names can't silently clobber each other.
 
 ---
 
