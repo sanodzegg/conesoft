@@ -79,6 +79,9 @@ contextBridge.exposeInMainWorld('electron', {
   pdfConvertImagesToPdfSave: () => ipcRenderer.invoke('pdf-convert-images-to-pdf-save'),
   pdfConvertReset: () => ipcRenderer.invoke('pdf-convert-reset'),
   pdfConvertPickPdf: () => ipcRenderer.invoke('pdf-convert-pick-pdf'),
+  pdfConvertSplitPick: () => ipcRenderer.invoke('pdf-convert-split-pick'),
+  pdfConvertSplitBuild: (opts) => ipcRenderer.invoke('pdf-convert-split-build', opts),
+  pdfConvertSplitSave: (opts) => ipcRenderer.invoke('pdf-convert-split-save', opts),
 
   // Tray / notifications
   showNotification: (title, body) => ipcRenderer.send('show-notification', { title, body }),

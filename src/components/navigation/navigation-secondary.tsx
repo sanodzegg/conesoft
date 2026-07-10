@@ -10,7 +10,7 @@ import {
     SheetTrigger,
 } from "../ui/sheet";
 import { cn } from "@/lib/utils";
-import { Camera, ChevronRight, Crop, FileDown, FileEdit, FileImage, FilePlus, FolderInput, FolderSync, Gauge, Globe, ImageIcon, Images, LayoutGrid, Lock, PenLine, Pipette, Star, Tag, TextCursorInput, User, WifiOff, Zap } from "lucide-react";
+import { Camera, ChevronRight, Crop, FileDown, FolderInput, FolderSync, Gauge, Globe, ImageIcon, LayoutGrid, Lock, PenLine, Pipette, Star, Tag, TextCursorInput, User, WifiOff, Zap } from "lucide-react";
 import { useAuth } from "@/lib/useAuth";
 import { isPaidPlan } from "@/store/useAuthStore";
 import { PRICING_DISMISSED_KEY } from "./navigation";
@@ -87,7 +87,11 @@ function renderChild(
 }
 
 type GroupChild = { title: string; description: string; href: string; icon: React.ReactNode; disabled?: boolean; requiresInternet?: boolean; proOnly?: boolean; paidOnly?: boolean }
-type Extension = { kind: 'group'; title: string; icon: React.ReactNode; proOnly?: boolean; children: GroupChild[] }
+type NavGroup = { kind: 'group'; title: string; icon: React.ReactNode; children: GroupChild[] }
+// A single top-level link (no children) - e.g. the PDF hub, which fans out to its tools on its
+// own page rather than expanding a long list in the sidebar. Locked like a child (proOnly/paidOnly).
+type NavLinkItem = { kind: 'link'; title: string; icon: React.ReactNode; href: string; activePrefix: string; proOnly?: boolean; paidOnly?: boolean }
+type Extension = NavGroup | NavLinkItem
 
 const extensions: Extension[] = [
     {
@@ -180,39 +184,12 @@ const extensions: Extension[] = [
         ],
     },
     {
-        kind: 'group',
+        kind: 'link',
         title: 'PDF',
         icon: <FileDown className="size-5" />,
-        children: [
-            {
-                title: 'PDF Editor',
-                description: 'Reorder, rotate, annotate, and watermark pages',
-                href: '/extensions/pdf-editor',
-                icon: <FileEdit className="size-5" />,
-                proOnly: true,
-            },
-            {
-                title: 'Merge',
-                description: 'Combine multiple PDFs into one',
-                href: '/extensions/pdf-merge',
-                icon: <FilePlus className="size-5" />,
-                proOnly: true,
-            },
-            {
-                title: 'Images to PDF',
-                description: 'Combine images into a single PDF',
-                href: '/extensions/images-to-pdf',
-                icon: <FileImage className="size-5" />,
-                proOnly: true,
-            },
-            {
-                title: 'PDF to Images',
-                description: 'Export PDF pages as PNG, JPG, or WebP',
-                href: '/extensions/pdf-to-images',
-                icon: <Images className="size-5" />,
-                proOnly: true,
-            },
-        ],
+        href: '/extensions/pdf',
+        activePrefix: '/extensions/pdf',
+        proOnly: true,
     },
 ]
 
@@ -228,7 +205,6 @@ export function NavigationSecondary() {
         const initial = new Set<string>()
         if (getFavorites().length > 0) initial.add('Favorites')
         if (pathname.startsWith('/extensions/website') || pathname.startsWith('/extensions/lighthouse')) initial.add('Web')
-        else if (pathname.startsWith('/extensions/pdf')) initial.add('PDF')
         else if (pathname.startsWith('/extensions/bulk-converter') || pathname.startsWith('/extensions/batch-rename')) initial.add('Batch Operations')
         else if (pathname.startsWith('/extensions/image') || pathname.startsWith('/extensions/svg') || pathname.startsWith('/extensions/favicon') || pathname.startsWith('/extensions/palette')) initial.add('Image')
         return initial
@@ -292,7 +268,7 @@ export function NavigationSecondary() {
                     <div className="flex flex-col gap-2 p-4 pt-0 flex-1 overflow-y-auto">
                         {/* Favorites group */}
                         {favorites.length > 0 && (() => {
-                            const favChildren = extensions.flatMap(e => e.children).filter(c => favorites.includes(c.href))
+                            const favChildren = extensions.flatMap(e => e.kind === 'group' ? e.children : []).filter(c => favorites.includes(c.href))
                             const isExpanded = expandedGroups.has('Favorites')
                             const isFavGroupActive = favChildren.some(c => pathname === c.href)
                             return (
@@ -318,6 +294,33 @@ export function NavigationSecondary() {
                         })()}
 
                         {extensions.map((ext) => {
+                            // Single-link entry (e.g. PDF hub): one row that navigates, no expansion.
+                            if (ext.kind === 'link') {
+                                const locked = (isLimited && !!ext.proOnly) || (!isPaid && !!ext.paidOnly)
+                                const active = !locked && pathname.startsWith(ext.activePrefix)
+                                if (locked) return (
+                                    <div key={ext.title} className="w-full flex items-center gap-3 rounded-lg p-3 2xl:p-4 opacity-50 cursor-not-allowed">
+                                        <div className="shrink-0 text-muted-foreground">{ext.icon}</div>
+                                        <span className="text-sm 2xl:text-base font-medium flex-1 text-left">{ext.title}</span>
+                                        <Lock className="size-4 shrink-0 text-muted-foreground" />
+                                    </div>
+                                )
+                                return (
+                                    <NavLink
+                                        key={ext.title}
+                                        to={ext.href}
+                                        className={cn(
+                                            "w-full flex items-center gap-3 rounded-lg p-3 2xl:p-4 transition-colors cursor-pointer",
+                                            active ? "bg-primary/10 text-primary" : "hover:bg-accent text-foreground"
+                                        )}
+                                    >
+                                        <div className={cn("shrink-0", active ? "text-primary" : "text-muted-foreground")}>{ext.icon}</div>
+                                        <span className="text-sm 2xl:text-base font-medium flex-1 text-left">{ext.title}</span>
+                                        <ChevronRight className="size-4 2xl:size-5 text-muted-foreground" />
+                                    </NavLink>
+                                )
+                            }
+
                             const visibleChildren = ext.children.filter(c => !favorites.includes(c.href))
                             if (visibleChildren.length === 0) return null
                             const groupLocked = visibleChildren.every(c => isChildLocked(c, isLimited, isPaid))

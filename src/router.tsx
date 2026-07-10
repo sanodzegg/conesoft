@@ -21,6 +21,8 @@ const Lighthouse = lazy(() => import('./pages/lighthouse'))
 const PdfEditor = lazy(() => import('./pages/pdf-editor'))
 const ImagesToPdf = lazy(() => import('./pages/images-to-pdf'))
 const PdfToImages = lazy(() => import('./pages/pdf-to-images'))
+const PdfSplit = lazy(() => import('./pages/pdf-split'))
+const PdfHub = lazy(() => import('./pages/pdf-hub'))
 
 function ProRoute({ children }: { children: React.ReactNode }) {
   const { plan } = useAuth()
@@ -55,9 +57,11 @@ export default function Router() {
           <Route path="/extensions/website-screenshot" element={<ProRoute><WebsiteScreenshot /></ProRoute>} />
           <Route path="/extensions/website-pdf" element={<ProRoute><WebsitePdf /></ProRoute>} />
           <Route path="/extensions/lighthouse" element={<ProRoute><Lighthouse /></ProRoute>} />
+          <Route path="/extensions/pdf" element={<ProRoute><PdfHub /></ProRoute>} />
           <Route path="/extensions/pdf-editor" element={<ProRoute><PdfEditor /></ProRoute>} />
           <Route path="/extensions/images-to-pdf" element={<ProRoute><ImagesToPdf /></ProRoute>} />
           <Route path="/extensions/pdf-to-images" element={<ProRoute><PdfToImages /></ProRoute>} />
+          <Route path="/extensions/pdf-split" element={<ProRoute><PdfSplit /></ProRoute>} />
           <Route path="/account" element={<Auth />} />
           <Route path="/pricing" element={<Pricing />} />
       </Routes>

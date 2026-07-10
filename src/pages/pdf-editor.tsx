@@ -5,6 +5,7 @@ import { cn } from '@/lib/utils'
 import { resetEditorSaveSession } from '@/lib/usePdfSaveMeter'
 import { useAuth } from '@/lib/useAuth'
 import { isPaidPlan } from '@/store/useAuthStore'
+import { BackLink } from '@/components/back-link'
 import { lazy, Suspense } from 'react'
 import { Loader2 } from 'lucide-react'
 
@@ -101,12 +102,13 @@ export default function PdfEditor() {
 
   return (
     <section className="section py-8">
+      <BackLink to="/extensions/pdf" label="Back to PDF Tools" />
       {/* Header */}
       <div className="mb-6 flex items-start justify-between gap-4">
         <div>
           <h2 className="text-2xl font-body font-semibold">PDF Editor</h2>
           <p className="text-sm text-muted-foreground mt-1">
-            Reorder pages, annotate, add watermarks, and fill forms - all locally.
+            Reorder pages, annotate, add watermarks, and fill forms.
           </p>
         </div>
         {metered && (

@@ -7,6 +7,7 @@ import { cn } from '@/lib/utils'
 import { usePdfSaveMeter, resetMergeSaveSession } from '@/lib/usePdfSaveMeter'
 import { useAuth } from '@/lib/useAuth'
 import { isPaidPlan } from '@/store/useAuthStore'
+import { BackLink } from '@/components/back-link'
 
 type Status = 'idle' | 'merging' | 'done' | 'error'
 
@@ -114,6 +115,7 @@ export default function PdfMerge() {
 
   return (
     <section className="section py-8">
+      <BackLink to="/extensions/pdf" label="Back to PDF Tools" />
       <div className="mb-6 flex items-start justify-between gap-4">
         <div>
           <h2 className="text-2xl font-body font-semibold text-foreground">Merge PDFs</h2>

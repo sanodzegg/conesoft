@@ -127,6 +127,9 @@ declare interface Window {
     pdfConvertImagesToPdfSave: () => Promise<{ canceled: boolean; filePath?: string }>
     pdfConvertReset: () => Promise<{ ok: boolean }>
     pdfConvertPickPdf: () => Promise<{ canceled: true } | { canceled: false; name: string; size: number; data: number[] }>
+    pdfConvertSplitPick: () => Promise<{ canceled: true } | { canceled: false; name: string; size: number; data: number[] }>
+    pdfConvertSplitBuild: (opts: { pages: number[]; mode: 'extract' | 'split' }) => Promise<{ success: boolean; pageCount?: number; fileCount?: number; error?: string }>
+    pdfConvertSplitSave: (opts: { mode: 'extract' | 'split' }) => Promise<{ canceled: boolean; filePath?: string; folderPath?: string; count?: number }>
 
     // Tray / notifications
     showNotification: (title: string, body: string) => void

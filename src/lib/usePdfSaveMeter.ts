@@ -19,10 +19,12 @@ let editorSavedOnce = false
 let mergeSavedOnce = false
 let imagesToPdfSavedOnce = false
 let pdfToImagesSavedOnce = false
+let splitSavedOnce = false
 export function resetEditorSaveSession() { editorSavedOnce = false }
 export function resetMergeSaveSession() { mergeSavedOnce = false }
 export function resetImagesToPdfSaveSession() { imagesToPdfSavedOnce = false }
 export function resetPdfToImagesSaveSession() { pdfToImagesSavedOnce = false }
+export function resetSplitSaveSession() { splitSavedOnce = false }
 
 const NEW_DOC_COST = 5
 const RESAVE_COST = 2
@@ -53,11 +55,13 @@ export function usePdfSaveMeter() {
         reserveMergeSave() { return reserve(mergeSavedOnce ? RESAVE_COST : NEW_DOC_COST) },
         reserveImagesToPdfSave() { return reserve(imagesToPdfSavedOnce ? RESAVE_COST : NEW_DOC_COST) },
         reservePdfToImagesSave() { return reserve(pdfToImagesSavedOnce ? RESAVE_COST : NEW_DOC_COST) },
+        reserveSplitSave() { return reserve(splitSavedOnce ? RESAVE_COST : NEW_DOC_COST) },
         // Mark the document saved so later saves this session bill as re-saves (2).
         markEditorSaved() { editorSavedOnce = true },
         markMergeSaved() { mergeSavedOnce = true },
         markImagesToPdfSaved() { imagesToPdfSavedOnce = true },
         markPdfToImagesSaved() { pdfToImagesSavedOnce = true },
+        markSplitSaved() { splitSavedOnce = true },
         // Call once the file is actually written (triggers server sync + exhaustion flip).
         onSaved() { onConversionSuccess('document') },
     }
