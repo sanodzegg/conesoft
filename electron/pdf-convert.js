@@ -2,7 +2,7 @@ const { ipcMain, dialog } = require('electron')
 const fs = require('fs')
 const path = require('path')
 const sharp = require('sharp')
-const { PDFDocument } = require('pdf-lib')
+const { PDFDocument, PDFName, PDFRawStream } = require('pdf-lib')
 const { decodeHeic } = require('./convert')
 
 // Image <-> PDF conversions. Kept separate from pdf-tools.js (merge) and pdf-editor.js so the
@@ -31,6 +31,44 @@ async function embedImage(doc, rawBuf) {
   }
   const jpg = await pipeline.flatten({ background: '#ffffff' }).jpeg({ quality: 90 }).toBuffer()
   return doc.embedJpg(jpg)
+}
+
+// ── Compression ────────────────────────────────────────────────────────────────
+// Each level maps to a JPEG quality + a max pixel dimension. Downscaling oversized images is
+// where most of the real size win lives; the quality drop does the rest.
+const COMPRESS_LEVELS = {
+  low: { quality: 85, maxDim: 3500 },          // lighter squeeze, best quality
+  recommended: { quality: 72, maxDim: 2200 },
+  high: { quality: 58, maxDim: 1600 },         // smallest file
+}
+
+// Recompress one image stream if (and only if) it's a plain JPEG (DCTDecode) and the result is
+// actually smaller. Returns the new bytes + dims, or null to leave the original untouched.
+// We deliberately only touch DCTDecode: FlateDecode/raw images need colorspace-aware decoding and
+// are risky to rewrite, so we skip them rather than corrupt anything. No EXIF .rotate() here - a
+// PDF places images via its own matrix and ignores the JPEG's EXIF orientation, so rotating would
+// mis-orient the image relative to the page.
+async function recompressOne(obj, level) {
+  const { quality, maxDim } = COMPRESS_LEVELS[level] ?? COMPRESS_LEVELS.recommended
+  const dict = obj.dict
+  const subtype = dict.get(PDFName.of('Subtype'))
+  if (!subtype || subtype.toString() !== '/Image') return null
+  const filter = dict.get(PDFName.of('Filter'))
+  if (!filter || filter.toString() !== '/DCTDecode') return null
+
+  const original = Buffer.from(obj.contents)
+  const meta = await sharp(original, { failOn: 'none' }).metadata()
+  const isGray = meta.channels === 1
+  let pipe = sharp(original, { failOn: 'none' })
+  if (meta.width && meta.height && Math.max(meta.width, meta.height) > maxDim) {
+    pipe = pipe.resize({ width: maxDim, height: maxDim, fit: 'inside', withoutEnlargement: true })
+  }
+  // Normalize colorspace so CMYK/ICC JPEGs don't need a /Decode array or invert in-viewer.
+  pipe = isGray ? pipe.toColourspace('b-w') : pipe.toColourspace('srgb')
+  const bytes = await pipe.jpeg({ quality, mozjpeg: true }).toBuffer()
+  if (bytes.length >= original.length) return null
+  const outMeta = await sharp(bytes).metadata()
+  return { bytes, width: outMeta.width, height: outMeta.height, isGray }
 }
 
 // Write a file into a folder without ever overwriting: on a name clash, auto-suffix
@@ -232,6 +270,72 @@ function registerPdfConvertHandlers(mainWindow) {
     })
     if (canceled || !filePath) return { canceled: true }
     await fs.promises.writeFile(filePath, splitExtractBuffer)
+    return { canceled: false, filePath }
+  })
+
+  // ── Compress ───────────────────────────────────────────────────────────────
+  let compressSource = null   // { buf, name }
+  let compressResult = null   // Buffer/Uint8Array of the smaller output (or the original)
+
+  ipcMain.handle('pdf-compress-pick', async () => {
+    const { canceled, filePaths } = await dialog.showOpenDialog(mainWindow, {
+      title: 'Select PDF',
+      filters: [{ name: 'PDF', extensions: ['pdf'] }],
+      properties: ['openFile'],
+    })
+    if (canceled || !filePaths.length) return { canceled: true }
+    const fp = filePaths[0]
+    const buf = await fs.promises.readFile(fp)
+    compressSource = { buf, name: path.basename(fp, path.extname(fp)) }
+    compressResult = null
+    return { canceled: false, name: path.basename(fp), size: buf.length }
+  })
+
+  // Two passes: (1) recompress embedded JPEGs via sharp, (2) always re-save with object streams
+  // so even image-free PDFs get the structural win. Never returns a bigger file than the input.
+  ipcMain.handle('pdf-compress-run', async (_e, { level }) => {
+    try {
+      if (!compressSource) return { success: false, error: 'No PDF loaded.' }
+      const doc = await PDFDocument.load(compressSource.buf)
+      let images = 0
+      for (const [ref, obj] of doc.context.enumerateIndirectObjects()) {
+        if (!(obj instanceof PDFRawStream)) continue
+        try {
+          const res = await recompressOne(obj, level)
+          if (!res) continue
+          const dict = obj.dict
+          dict.set(PDFName.of('Width'), doc.context.obj(res.width))
+          dict.set(PDFName.of('Height'), doc.context.obj(res.height))
+          dict.set(PDFName.of('BitsPerComponent'), doc.context.obj(8))
+          dict.set(PDFName.of('ColorSpace'), PDFName.of(res.isGray ? 'DeviceGray' : 'DeviceRGB'))
+          dict.set(PDFName.of('Filter'), PDFName.of('DCTDecode'))
+          dict.set(PDFName.of('Length'), doc.context.obj(res.bytes.length))
+          dict.delete(PDFName.of('DecodeParms'))
+          dict.delete(PDFName.of('Decode'))
+          doc.context.assign(ref, PDFRawStream.of(dict, res.bytes))
+          images++
+        } catch { /* leave this image untouched */ }
+      }
+      const rebuilt = await doc.save({ useObjectStreams: true })
+      const originalSize = compressSource.buf.length
+      // Honesty guard: if we couldn't beat the original, hand back the original bytes.
+      compressResult = rebuilt.length < originalSize ? rebuilt : compressSource.buf
+      return { success: true, originalSize, compressedSize: compressResult.length, images }
+    } catch (e) {
+      return { success: false, error: e.message }
+    }
+  })
+
+  ipcMain.handle('pdf-compress-save', async () => {
+    if (!compressResult) return { canceled: true }
+    const base = compressSource ? compressSource.name : 'compressed'
+    const { canceled, filePath } = await dialog.showSaveDialog(mainWindow, {
+      title: 'Save compressed PDF',
+      defaultPath: `${base}-compressed.pdf`,
+      filters: [{ name: 'PDF', extensions: ['pdf'] }],
+    })
+    if (canceled || !filePath) return { canceled: true }
+    await fs.promises.writeFile(filePath, compressResult)
     return { canceled: false, filePath }
   })
 }

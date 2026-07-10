@@ -82,6 +82,9 @@ contextBridge.exposeInMainWorld('electron', {
   pdfConvertSplitPick: () => ipcRenderer.invoke('pdf-convert-split-pick'),
   pdfConvertSplitBuild: (opts) => ipcRenderer.invoke('pdf-convert-split-build', opts),
   pdfConvertSplitSave: (opts) => ipcRenderer.invoke('pdf-convert-split-save', opts),
+  pdfCompressPick: () => ipcRenderer.invoke('pdf-compress-pick'),
+  pdfCompressRun: (opts) => ipcRenderer.invoke('pdf-compress-run', opts),
+  pdfCompressSave: () => ipcRenderer.invoke('pdf-compress-save'),
 
   // Tray / notifications
   showNotification: (title, body) => ipcRenderer.send('show-notification', { title, body }),

@@ -50,7 +50,7 @@ electron/
   bulk-convert.js      - bulk folder conversion + fs.watch watch mode
   pdf-tools.js         - PDF merge
   pdf-editor.js        - PDF page ops, watermark, form fill, burn annotations
-  pdf-convert.js       - image↔PDF converters (images→PDF, sharp) + split/extract pages (copyPages)
+  pdf-convert.js       - image↔PDF converters, split/extract (copyPages), compress (sharp re-encode)
   website-pdf.js       - Playwright website→PDF (shares browser w/ screenshot)
   screenshot.js        - Playwright screenshot + owns the shared browser instance
   lighthouse.js        - Lighthouse runner (bundled dep; forks lighthouse-worker.js)
@@ -240,22 +240,23 @@ Tokens are spent via `spendTokens` (reserve up front, `refund()` on failure) in 
   - **Image editor** export (`crop-editor.tsx` → `exportCanvas` returns `'saved' | 'canceled' |
     'failed'`) - reserves before export, refunds on cancel (silent) or failure (toast). **Open to
     all plans**, so trial **and** limited are metered (paid ungated).
-- **PDF saves** (editor, merge, images→pdf, pdf→images, split) - **document tokens only**, via the
+- **PDF saves** (editor, merge, images→pdf, pdf→images, split, compress) - **document tokens only**, via the
   `usePdfSaveMeter` hook. `spendTokens` takes an options arg `{ cost?, countCategory? }`; PDF saves
   pass `countCategory:false`, so they spend tokens but do **not** bump the per-category "Documents"
-  analytics count (that tally is for actual document *conversions* only). All five are
+  analytics count (that tally is for actual document *conversions* only). All six are
   **session-priced**: the **first save of a session = 5**, **every later save = 2**, regardless of
-  how much was edited / re-merged / re-rendered / re-selected in between. **Five** module-level flags
-  (`editorSavedOnce` / `mergeSavedOnce` / `imagesToPdfSavedOnce` / `pdfToImagesSavedOnce` /
-  `splitSavedOnce`) so the tools don't affect each other's pricing. Each tool has matching
-  `reserve*Save()` / `mark*Saved()` / `reset*SaveSession()` fns:
+  how much was edited / re-merged / re-rendered / re-selected / re-compressed in between. **Six**
+  module-level flags (`editorSavedOnce` / `mergeSavedOnce` / `imagesToPdfSavedOnce` /
+  `pdfToImagesSavedOnce` / `splitSavedOnce` / `compressSavedOnce`) so the tools don't affect each
+  other's pricing. Each tool has matching `reserve*Save()` / `mark*Saved()` / `reset*SaveSession()` fns:
   *Editor:* reset fires when a file is opened/closed (`pdf-editor.tsx`).
-  *Merge / Images→PDF / PDF→Images / Split:* reset fires on page mount and on Reset - so redoing a
-  different job in the same visit still bills as a re-save (2). One save = one charge regardless of
-  output fan-out (PDF→Images: single image *or* an N-page zip; Split: one extracted PDF *or* a
-  folder of N split PDFs). Reserve happens *before* the work so an out-of-budget user is blocked
-  first; refund on op failure or a canceled save/folder dialog. All are `proOnly` (nav-locked for
-  limited + `ProRoute`), so in practice only trial users are metered here; paid is ungated.
+  *Merge / Images→PDF / PDF→Images / Split / Compress:* reset fires on page mount and on Reset - so
+  redoing a different job in the same visit still bills as a re-save (2). One save = one charge
+  regardless of output fan-out (PDF→Images: single image *or* an N-page zip; Split: one extracted
+  PDF *or* a folder of N split PDFs). Compress bills on **download**, not the run (the before/after
+  preview is free). Reserve happens *before* the work so an out-of-budget user is blocked first;
+  refund on op failure or a canceled save/folder dialog. All are `proOnly` (nav-locked for limited +
+  `ProRoute`), so in practice only trial users are metered here; paid is ungated.
 - **Web tools** (all `countCategory:false`, so no per-category count - not conversions):
   - **Screenshot** (`use-screenshot.ts` `save`) and **Website PDF** (`website-pdf.tsx` `save`) charge
     on **download**, not capture/generate (preview is free), and are **session-priced per page visit**
@@ -312,7 +313,7 @@ is the single source of truth for "paid".
   entry that opens a grid of tool cards (the sidebar no longer lists each PDF tool individually).
   Each tool keeps its own route; the hub is just the landing grid. The nav entry is a new
   `kind: 'link'` `Extension` (single row, no expansion) in `navigation-secondary.tsx`, locked for
-  `limited` via `proOnly`. Compress renders as a disabled "Soon" card until built.
+  `limited` via `proOnly`. Hub cards support a `soon` flag that renders a disabled "coming soon" card (none currently).
 - **PDF merge** (`proOnly` - nav-locked for limited + `ProRoute`) - drag-reorder, merge, save.
 - **PDF editor** (`proOnly` - nav-locked for limited + `ProRoute`) - page reorder/rotate/delete,
   watermark (text/image), form fill, burn annotations (highlight/draw/arrow/text). Renders via
@@ -329,6 +330,15 @@ is the single source of truth for "paid".
   each selected page → its own PDF written into a chosen folder (`writeUnique` = same atomic `wx`
   auto-suffix as file-save.js). pdf-lib `copyPages` in `pdf-convert.js`; the picker stashes the
   source bytes main-side so the ops don't round-trip the file. `src/pages/pdf-split.tsx`.
+- **Compress** (`proOnly`) - two passes in `pdf-convert.js`: (1) walk the PDF's image XObjects and
+  recompress **DCTDecode (JPEG)** streams via sharp (downscale oversized + JPEG quality by level:
+  low/recommended/high), swapping each stream in place with `context.assign` + `PDFRawStream.of`;
+  (2) always re-save with `useObjectStreams:true` so image-free PDFs still get a structural win.
+  ⚠️ Only DCTDecode is touched - Flate/raw images are left as-is (colorspace-aware rewrite is risky).
+  No EXIF `.rotate()` here (a PDF places images via its own matrix, unlike images→PDF). **Never
+  returns a bigger file** than the input (falls back to the original bytes), and the UI shows an
+  honest before/after + an "already optimized" state when there's nothing to gain.
+  `src/pages/pdf-compress.tsx`. Charged on **download** (run/preview is free).
 - **Website PDF** / **Website Screenshot** - Playwright; share one browser instance;
   block trackers, scroll to trigger lazy media, replace videos, strip fixed/chat widgets.
 - **Lighthouse** - performance/a11y/best-practices/SEO audit, desktop+mobile in parallel.
@@ -350,10 +360,10 @@ All PDF work is built on the **free, permissively-licensed** stack we already sh
   `sharp`** (re-encode the embedded images), *not* Ghostscript.
 - Safe to add when their features land: **qpdf** (Apache 2.0 - password/encrypt) and
   **tesseract.js** (Apache 2.0 - on-device OCR, fits the local-first story).
-- **Shipped:** Editor, Merge, Images→PDF, PDF→Images, Split & Extract - all reached via the
-  **PDF hub** page (single sidebar entry → grid of cards).
+- **Shipped:** Editor, Merge, Images→PDF, PDF→Images, Split & Extract, Compress - all reached via
+  the **PDF hub** page (single sidebar entry → grid of cards).
 - **Planned** (effort-to-impact order): page numbers / header-footer · crop · sign (draw → embed
-  image) · compress (sharp) · OCR (tesseract) · password (qpdf).
+  image) · OCR (tesseract) · password (qpdf).
 - **Deliberately NOT doing** (needs a commercial SDK, or unsafe to do free): layout-preserving
   PDF→Word/Excel (we stay text-only), in-place text editing, true redaction (a fake black-box
   redaction leaves the text underneath - don't ship it until we can remove bytes properly).

@@ -130,6 +130,9 @@ declare interface Window {
     pdfConvertSplitPick: () => Promise<{ canceled: true } | { canceled: false; name: string; size: number; data: number[] }>
     pdfConvertSplitBuild: (opts: { pages: number[]; mode: 'extract' | 'split' }) => Promise<{ success: boolean; pageCount?: number; fileCount?: number; error?: string }>
     pdfConvertSplitSave: (opts: { mode: 'extract' | 'split' }) => Promise<{ canceled: boolean; filePath?: string; folderPath?: string; count?: number }>
+    pdfCompressPick: () => Promise<{ canceled: true } | { canceled: false; name: string; size: number }>
+    pdfCompressRun: (opts: { level: 'low' | 'recommended' | 'high' }) => Promise<{ success: boolean; originalSize?: number; compressedSize?: number; images?: number; error?: string }>
+    pdfCompressSave: () => Promise<{ canceled: boolean; filePath?: string }>
 
     // Tray / notifications
     showNotification: (title: string, body: string) => void

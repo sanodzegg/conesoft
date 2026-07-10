@@ -42,10 +42,9 @@ const TOOLS: Tool[] = [
   },
   {
     title: 'Compress',
-    description: 'Shrink PDF file size by re-encoding embedded images.',
+    description: 'Shrink PDF file size by recompressing images and structure.',
     href: '/extensions/pdf-compress',
     icon: <Minimize2 className="size-6" />,
-    soon: true,
   },
 ]
 
