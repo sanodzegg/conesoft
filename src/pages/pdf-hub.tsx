@@ -10,12 +10,16 @@ type Tool = {
   popular?: boolean
 }
 
+// Ordered so each row of 3 (lg grid) is one kind:
+// row 1 = Organize, row 2 = Convert & Optimize, row 3 = Edit & Sign.
 const TOOLS: Tool[] = [
+  // — Organize —
   {
-    title: 'PDF Editor',
-    description: 'Reorder, rotate, annotate, watermark, and fill forms.',
-    href: '/extensions/pdf-editor',
-    icon: <FileEdit className="size-6" />,
+    title: 'Merge',
+    description: 'Combine multiple PDFs into one, in any order.',
+    href: '/extensions/pdf-merge',
+    icon: <FilePlus className="size-6" />,
+    popular: true,
   },
   {
     title: 'Split & Extract',
@@ -24,12 +28,12 @@ const TOOLS: Tool[] = [
     icon: <Scissors className="size-6" />,
   },
   {
-    title: 'Merge',
-    description: 'Combine multiple PDFs into one, in any order.',
-    href: '/extensions/pdf-merge',
-    icon: <FilePlus className="size-6" />,
-    popular: true,
+    title: 'PDF Editor',
+    description: 'Reorder, rotate, annotate, watermark, and fill forms.',
+    href: '/extensions/pdf-editor',
+    icon: <FileEdit className="size-6" />,
   },
+  // — Convert & Optimize —
   {
     title: 'Images to PDF',
     description: 'Combine images into a single PDF, one per page.',
@@ -49,6 +53,14 @@ const TOOLS: Tool[] = [
     icon: <Minimize2 className="size-6" />,
     popular: true,
   },
+  // — Edit & Sign —
+  {
+    title: 'Sign',
+    description: 'Draw or upload a signature and place it on the page.',
+    href: '/extensions/pdf-sign',
+    icon: <PenTool className="size-6" />,
+    popular: true,
+  },
   {
     title: 'Page Numbers',
     description: 'Add page numbers with control over position and format.',
@@ -60,13 +72,6 @@ const TOOLS: Tool[] = [
     description: 'Add header and footer text, with page and date placeholders.',
     href: '/extensions/pdf-header-footer',
     icon: <Heading className="size-6" />,
-  },
-  {
-    title: 'Sign',
-    description: 'Draw or upload a signature and place it on the page.',
-    href: '/extensions/pdf-sign',
-    icon: <PenTool className="size-6" />,
-    popular: true,
   },
 ]
 
@@ -114,7 +119,7 @@ export default function PdfHub() {
               <div>
                 <div className="flex items-center gap-1.5">
                   <h3 className="text-sm xl:text-base font-body font-medium text-foreground">{tool.title}</h3>
-                  {tool.popular && <Flame className="size-4 text-orange-500 shrink-0" aria-label="Popular" />}
+                  {tool.popular && <Flame className="size-4 text-orange-500 shrink-0 animate-flame-glow" aria-label="Popular" />}
                 </div>
                 <p className="text-xs xl:text-sm text-muted-foreground mt-1">{tool.description}</p>
               </div>

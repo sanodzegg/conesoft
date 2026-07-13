@@ -159,6 +159,7 @@
   --radius-4xl: calc(var(--radius) * 2.6);
 
   --animate-spin-once: spin-once 1s ease-in-out;
+  --animate-flame-glow: flame-glow 2.8s ease-in-out infinite;
 
   @keyframes spin-once {
     from {
@@ -167,6 +168,22 @@
     to {
       transform: rotate(360deg);
     }
+  }
+
+  /* Subtle, dim pulse for the "popular" flame icon. */
+  @keyframes flame-glow {
+    0%, 100% {
+      filter: drop-shadow(0 0 0.5px rgba(249, 115, 22, 0.25));
+    }
+    50% {
+      filter: drop-shadow(0 0 2.5px rgba(249, 115, 22, 0.5));
+    }
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-flame-glow {
+    animation: none;
   }
 }
 
