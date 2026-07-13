@@ -489,6 +489,64 @@ function registerPdfConvertHandlers(mainWindow) {
     await fs.promises.writeFile(filePath, headerFooterResult)
     return { canceled: false, filePath }
   })
+
+  // ── Sign (visual signature) ──────────────────────────────────────────────────
+  let signSource = null   // { buf, name }
+  let signResult = null
+
+  ipcMain.handle('pdf-sign-pick', async () => {
+    const { canceled, filePaths } = await dialog.showOpenDialog(mainWindow, {
+      title: 'Select PDF',
+      filters: [{ name: 'PDF', extensions: ['pdf'] }],
+      properties: ['openFile'],
+    })
+    if (canceled || !filePaths.length) return { canceled: true }
+    const fp = filePaths[0]
+    const buf = await fs.promises.readFile(fp)
+    signSource = { buf, name: path.basename(fp, path.extname(fp)) }
+    signResult = null
+    return { canceled: false, name: path.basename(fp), size: buf.length, data: Array.from(buf) }
+  })
+
+  // Embed a signature PNG onto one page. Placement is top-origin fractions of the page:
+  // xFrac/yFrac = the signature's top-left, widthFrac = signature width / page width. Height is
+  // derived from the PNG's own aspect so it never distorts.
+  ipcMain.handle('pdf-sign-apply', async (_e, { pages, signature, xFrac, yFrac, widthFrac }) => {
+    try {
+      if (!signSource) return { success: false, error: 'No PDF loaded.' }
+      if (!signature || !signature.length) return { success: false, error: 'Draw or upload a signature first.' }
+      const doc = await PDFDocument.load(signSource.buf)
+      const allPages = doc.getPages()
+      const png = await doc.embedPng(Buffer.from(signature)) // embed once, reuse on every target page
+      const targets = [...new Set((pages && pages.length ? pages : [1]).map(n => Math.max(1, Math.min(allPages.length, n))))]
+      for (const n of targets) {
+        const target = allPages[n - 1]
+        const { width: pw, height: ph } = target.getSize()
+        const drawW = Math.max(1, widthFrac * pw)
+        const drawH = drawW * (png.height / png.width)
+        const x = xFrac * pw
+        const y = ph - (yFrac * ph) - drawH // flip: renderer sends a top-origin y
+        target.drawImage(png, { x, y, width: drawW, height: drawH })
+      }
+      signResult = await doc.save()
+      return { success: true, count: targets.length }
+    } catch (e) {
+      return { success: false, error: e.message }
+    }
+  })
+
+  ipcMain.handle('pdf-sign-save', async () => {
+    if (!signResult) return { canceled: true }
+    const base = signSource ? signSource.name : 'signed'
+    const { canceled, filePath } = await dialog.showSaveDialog(mainWindow, {
+      title: 'Save signed PDF',
+      defaultPath: `${base}-signed.pdf`,
+      filters: [{ name: 'PDF', extensions: ['pdf'] }],
+    })
+    if (canceled || !filePath) return { canceled: true }
+    await fs.promises.writeFile(filePath, signResult)
+    return { canceled: false, filePath }
+  })
 }
 
 module.exports = { registerPdfConvertHandlers }

@@ -23,6 +23,7 @@ let splitSavedOnce = false
 let compressSavedOnce = false
 let pageNumbersSavedOnce = false
 let headerFooterSavedOnce = false
+let signSavedOnce = false
 export function resetEditorSaveSession() { editorSavedOnce = false }
 export function resetMergeSaveSession() { mergeSavedOnce = false }
 export function resetImagesToPdfSaveSession() { imagesToPdfSavedOnce = false }
@@ -31,6 +32,7 @@ export function resetSplitSaveSession() { splitSavedOnce = false }
 export function resetCompressSaveSession() { compressSavedOnce = false }
 export function resetPageNumbersSaveSession() { pageNumbersSavedOnce = false }
 export function resetHeaderFooterSaveSession() { headerFooterSavedOnce = false }
+export function resetSignSaveSession() { signSavedOnce = false }
 
 const NEW_DOC_COST = 5
 const RESAVE_COST = 2
@@ -65,6 +67,7 @@ export function usePdfSaveMeter() {
         reserveCompressSave() { return reserve(compressSavedOnce ? RESAVE_COST : NEW_DOC_COST) },
         reservePageNumbersSave() { return reserve(pageNumbersSavedOnce ? RESAVE_COST : NEW_DOC_COST) },
         reserveHeaderFooterSave() { return reserve(headerFooterSavedOnce ? RESAVE_COST : NEW_DOC_COST) },
+        reserveSignSave() { return reserve(signSavedOnce ? RESAVE_COST : NEW_DOC_COST) },
         // Mark the document saved so later saves this session bill as re-saves (2).
         markEditorSaved() { editorSavedOnce = true },
         markMergeSaved() { mergeSavedOnce = true },
@@ -74,6 +77,7 @@ export function usePdfSaveMeter() {
         markCompressSaved() { compressSavedOnce = true },
         markPageNumbersSaved() { pageNumbersSavedOnce = true },
         markHeaderFooterSaved() { headerFooterSavedOnce = true },
+        markSignSaved() { signSavedOnce = true },
         // Call once the file is actually written (triggers server sync + exhaustion flip).
         onSaved() { onConversionSuccess('document') },
     }

@@ -50,7 +50,7 @@ electron/
   bulk-convert.js      - bulk folder conversion + fs.watch watch mode
   pdf-tools.js         - PDF merge
   pdf-editor.js        - PDF page ops, watermark, form fill, burn annotations
-  pdf-convert.js       - image↔PDF, split/extract, compress (sharp), page numbers + header/footer (drawText)
+  pdf-convert.js       - image↔PDF, split/extract, compress, page numbers, header/footer, sign (pdf-lib/sharp)
   website-pdf.js       - Playwright website→PDF (shares browser w/ screenshot)
   screenshot.js        - Playwright screenshot + owns the shared browser instance
   lighthouse.js        - Lighthouse runner (bundled dep; forks lighthouse-worker.js)
@@ -240,19 +240,20 @@ Tokens are spent via `spendTokens` (reserve up front, `refund()` on failure) in 
   - **Image editor** export (`crop-editor.tsx` → `exportCanvas` returns `'saved' | 'canceled' |
     'failed'`) - reserves before export, refunds on cancel (silent) or failure (toast). **Open to
     all plans**, so trial **and** limited are metered (paid ungated).
-- **PDF saves** (editor, merge, images→pdf, pdf→images, split, compress, page-numbers, header/footer)
-  - **document tokens only**, via the `usePdfSaveMeter` hook. `spendTokens` takes an options arg
+- **PDF saves** (editor, merge, images→pdf, pdf→images, split, compress, page-numbers, header/footer,
+  sign) - **document tokens only**, via the `usePdfSaveMeter` hook. `spendTokens` takes an options arg
   `{ cost?, countCategory? }`; PDF saves pass `countCategory:false`, so they spend tokens but do
   **not** bump the per-category "Documents" analytics count (that tally is for actual document
-  *conversions* only). All eight are **session-priced**: the **first save of a session = 5**, **every
+  *conversions* only). All nine are **session-priced**: the **first save of a session = 5**, **every
   later save = 2**, regardless of how much was edited / re-rendered / re-compressed / re-numbered in
-  between. **Eight** module-level flags (`editorSavedOnce` / `mergeSavedOnce` / `imagesToPdfSavedOnce` /
+  between. **Nine** module-level flags (`editorSavedOnce` / `mergeSavedOnce` / `imagesToPdfSavedOnce` /
   `pdfToImagesSavedOnce` / `splitSavedOnce` / `compressSavedOnce` / `pageNumbersSavedOnce` /
-  `headerFooterSavedOnce`) so the tools don't affect each other's pricing. Each tool has matching
-  `reserve*Save()` / `mark*Saved()` / `reset*SaveSession()` fns:
+  `headerFooterSavedOnce` / `signSavedOnce`) so the tools don't affect each other's pricing. Each tool
+  has matching `reserve*Save()` / `mark*Saved()` / `reset*SaveSession()` fns:
   *Editor:* reset fires when a file is opened/closed (`pdf-editor.tsx`).
-  *Merge / Images→PDF / PDF→Images / Split / Compress / Page-numbers / Header-footer:* reset fires on
-  page mount and on Reset - so redoing a different job in the same visit still bills as a re-save (2).
+  *Merge / Images→PDF / PDF→Images / Split / Compress / Page-numbers / Header-footer / Sign:* reset
+  fires on page mount and on Reset - so redoing a different job in the same visit still bills as a
+  re-save (2).
   One save = one charge regardless of output fan-out (PDF→Images: single image *or* an N-page zip;
   Split: one extracted PDF *or* a folder of N split PDFs). Compress / Page-numbers / Header-footer bill
   on **download**, not the run (the before/after or live preview is free). Reserve happens *before* the
@@ -350,6 +351,14 @@ is the single source of truth for "paid".
   (header/footer × left/center/right) with `{page}` / `{pages}` / `{date}` placeholders substituted
   per page, plus a **skip-first-page** toggle (cover pages). Live multi-slot preview overlays the
   filled slots on the page-1 thumbnail. `src/pages/pdf-header-footer.tsx`.
+- **Sign** (`proOnly`) - **visual** (not cryptographic) signature: draw on a canvas pad or upload
+  an image, then **drag to place** it with a size slider and apply to **This page** or **All pages**
+  (embed once, draw on each - e.g. initial every page of a contract). The renderer produces a
+  transparent PNG (draw pad export or upload re-canvassed); pdf-lib `embedPng` + `drawImage` burns
+  it at top-origin fractional coords, height derived from the PNG's own aspect so it never distorts
+  (an RGBA PNG embeds as image + SMask, preserving transparency). Honest copy: it's an electronic
+  signature, **not** a certified digital/PKI one (true PKI needs a paid CA cert - deferred).
+  `src/pages/pdf-sign.tsx`.
 - **Website PDF** / **Website Screenshot** - Playwright; share one browser instance;
   block trackers, scroll to trigger lazy media, replace videos, strip fixed/chat widgets.
 - **Lighthouse** - performance/a11y/best-practices/SEO audit, desktop+mobile in parallel.
@@ -372,9 +381,10 @@ All PDF work is built on the **free, permissively-licensed** stack we already sh
 - Safe to add when their features land: **qpdf** (Apache 2.0 - password/encrypt) and
   **tesseract.js** (Apache 2.0 - on-device OCR, fits the local-first story).
 - **Shipped:** Editor, Merge, Images→PDF, PDF→Images, Split & Extract, Compress, Page Numbers,
-  Header & Footer - all reached via the **PDF hub** page (single sidebar entry → grid of cards).
-- **Planned** (effort-to-impact order): crop · sign (draw → embed image) · OCR (tesseract) ·
-  password (qpdf).
+  Header & Footer, Sign - all reached via the **PDF hub** page (single sidebar entry → grid of cards).
+- **Planned** (effort-to-impact order): crop · OCR (tesseract) · password (qpdf). ⚠️ OCR and password
+  each need a **bundled binary/data + electron-builder changes + clean-machine verification** (a
+  different, infra-heavy kind of session than the pure pdf-lib tools above).
 - **Deliberately NOT doing** (needs a commercial SDK, or unsafe to do free): layout-preserving
   PDF→Word/Excel (we stay text-only), in-place text editing, true redaction (a fake black-box
   redaction leaves the text underneath - don't ship it until we can remove bytes properly).

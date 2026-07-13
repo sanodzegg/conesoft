@@ -26,6 +26,7 @@ const PdfHub = lazy(() => import('./pages/pdf-hub'))
 const PdfCompress = lazy(() => import('./pages/pdf-compress'))
 const PdfPageNumbers = lazy(() => import('./pages/pdf-page-numbers'))
 const PdfHeaderFooter = lazy(() => import('./pages/pdf-header-footer'))
+const PdfSign = lazy(() => import('./pages/pdf-sign'))
 
 function ProRoute({ children }: { children: React.ReactNode }) {
   const { plan } = useAuth()
@@ -68,6 +69,7 @@ export default function Router() {
           <Route path="/extensions/pdf-compress" element={<ProRoute><PdfCompress /></ProRoute>} />
           <Route path="/extensions/pdf-page-numbers" element={<ProRoute><PdfPageNumbers /></ProRoute>} />
           <Route path="/extensions/pdf-header-footer" element={<ProRoute><PdfHeaderFooter /></ProRoute>} />
+          <Route path="/extensions/pdf-sign" element={<ProRoute><PdfSign /></ProRoute>} />
           <Route path="/account" element={<Auth />} />
           <Route path="/pricing" element={<Pricing />} />
       </Routes>

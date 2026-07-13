@@ -91,6 +91,9 @@ contextBridge.exposeInMainWorld('electron', {
   pdfHeaderFooterPick: () => ipcRenderer.invoke('pdf-headerfooter-pick'),
   pdfHeaderFooterApply: (opts) => ipcRenderer.invoke('pdf-headerfooter-apply', opts),
   pdfHeaderFooterSave: () => ipcRenderer.invoke('pdf-headerfooter-save'),
+  pdfSignPick: () => ipcRenderer.invoke('pdf-sign-pick'),
+  pdfSignApply: (opts) => ipcRenderer.invoke('pdf-sign-apply', opts),
+  pdfSignSave: () => ipcRenderer.invoke('pdf-sign-save'),
 
   // Tray / notifications
   showNotification: (title, body) => ipcRenderer.send('show-notification', { title, body }),

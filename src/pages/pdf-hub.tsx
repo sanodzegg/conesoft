@@ -1,5 +1,5 @@
 import { NavLink } from 'react-router-dom'
-import { FileEdit, FilePlus, FileImage, Images, Scissors, Minimize2, Hash, Heading, ArrowRight } from 'lucide-react'
+import { FileEdit, FilePlus, FileImage, Images, Scissors, Minimize2, Hash, Heading, PenTool, Flame, ArrowRight } from 'lucide-react'
 
 type Tool = {
   title: string
@@ -7,6 +7,7 @@ type Tool = {
   href: string
   icon: React.ReactNode
   soon?: boolean
+  popular?: boolean
 }
 
 const TOOLS: Tool[] = [
@@ -27,6 +28,7 @@ const TOOLS: Tool[] = [
     description: 'Combine multiple PDFs into one, in any order.',
     href: '/extensions/pdf-merge',
     icon: <FilePlus className="size-6" />,
+    popular: true,
   },
   {
     title: 'Images to PDF',
@@ -45,6 +47,7 @@ const TOOLS: Tool[] = [
     description: 'Shrink PDF file size by recompressing images and structure.',
     href: '/extensions/pdf-compress',
     icon: <Minimize2 className="size-6" />,
+    popular: true,
   },
   {
     title: 'Page Numbers',
@@ -57,6 +60,13 @@ const TOOLS: Tool[] = [
     description: 'Add header and footer text, with page and date placeholders.',
     href: '/extensions/pdf-header-footer',
     icon: <Heading className="size-6" />,
+  },
+  {
+    title: 'Sign',
+    description: 'Draw or upload a signature and place it on the page.',
+    href: '/extensions/pdf-sign',
+    icon: <PenTool className="size-6" />,
+    popular: true,
   },
 ]
 
@@ -102,7 +112,10 @@ export default function PdfHub() {
                 {tool.icon}
               </div>
               <div>
-                <h3 className="text-sm xl:text-base font-body font-medium text-foreground">{tool.title}</h3>
+                <div className="flex items-center gap-1.5">
+                  <h3 className="text-sm xl:text-base font-body font-medium text-foreground">{tool.title}</h3>
+                  {tool.popular && <Flame className="size-4 text-orange-500 shrink-0" aria-label="Popular" />}
+                </div>
                 <p className="text-xs xl:text-sm text-muted-foreground mt-1">{tool.description}</p>
               </div>
             </NavLink>

@@ -156,6 +156,9 @@ declare interface Window {
       }
     }) => Promise<{ success: boolean; error?: string }>
     pdfHeaderFooterSave: () => Promise<{ canceled: boolean; filePath?: string }>
+    pdfSignPick: () => Promise<{ canceled: true } | { canceled: false; name: string; size: number; data: number[] }>
+    pdfSignApply: (opts: { pages: number[]; signature: number[]; xFrac: number; yFrac: number; widthFrac: number }) => Promise<{ success: boolean; count?: number; error?: string }>
+    pdfSignSave: () => Promise<{ canceled: boolean; filePath?: string }>
 
     // Tray / notifications
     showNotification: (title: string, body: string) => void
