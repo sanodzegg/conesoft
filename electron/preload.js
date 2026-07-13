@@ -88,6 +88,9 @@ contextBridge.exposeInMainWorld('electron', {
   pdfPageNumbersPick: () => ipcRenderer.invoke('pdf-pagenumbers-pick'),
   pdfPageNumbersApply: (opts) => ipcRenderer.invoke('pdf-pagenumbers-apply', opts),
   pdfPageNumbersSave: () => ipcRenderer.invoke('pdf-pagenumbers-save'),
+  pdfHeaderFooterPick: () => ipcRenderer.invoke('pdf-headerfooter-pick'),
+  pdfHeaderFooterApply: (opts) => ipcRenderer.invoke('pdf-headerfooter-apply', opts),
+  pdfHeaderFooterSave: () => ipcRenderer.invoke('pdf-headerfooter-save'),
 
   // Tray / notifications
   showNotification: (title, body) => ipcRenderer.send('show-notification', { title, body }),

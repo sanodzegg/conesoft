@@ -1,5 +1,5 @@
 import { NavLink } from 'react-router-dom'
-import { FileEdit, FilePlus, FileImage, Images, Scissors, Minimize2, Hash, ArrowRight } from 'lucide-react'
+import { FileEdit, FilePlus, FileImage, Images, Scissors, Minimize2, Hash, Heading, ArrowRight } from 'lucide-react'
 
 type Tool = {
   title: string
@@ -51,6 +51,12 @@ const TOOLS: Tool[] = [
     description: 'Add page numbers with control over position and format.',
     href: '/extensions/pdf-page-numbers',
     icon: <Hash className="size-6" />,
+  },
+  {
+    title: 'Header & Footer',
+    description: 'Add header and footer text, with page and date placeholders.',
+    href: '/extensions/pdf-header-footer',
+    icon: <Heading className="size-6" />,
   },
 ]
 

@@ -145,6 +145,17 @@ declare interface Window {
       }
     }) => Promise<{ success: boolean; numbered?: number; error?: string }>
     pdfPageNumbersSave: () => Promise<{ canceled: boolean; filePath?: string }>
+    pdfHeaderFooterPick: () => Promise<{ canceled: true } | { canceled: false; name: string; size: number; data: number[] }>
+    pdfHeaderFooterApply: (opts: {
+      options: {
+        header: { left: string; center: string; right: string }
+        footer: { left: string; center: string; right: string }
+        fontSize: number
+        margin: number
+        skipFirst: boolean
+      }
+    }) => Promise<{ success: boolean; error?: string }>
+    pdfHeaderFooterSave: () => Promise<{ canceled: boolean; filePath?: string }>
 
     // Tray / notifications
     showNotification: (title: string, body: string) => void

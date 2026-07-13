@@ -412,6 +412,83 @@ function registerPdfConvertHandlers(mainWindow) {
     await fs.promises.writeFile(filePath, pageNumResult)
     return { canceled: false, filePath }
   })
+
+  // ── Header / footer text ─────────────────────────────────────────────────────
+  let headerFooterSource = null   // { buf, name }
+  let headerFooterResult = null
+
+  ipcMain.handle('pdf-headerfooter-pick', async () => {
+    const { canceled, filePaths } = await dialog.showOpenDialog(mainWindow, {
+      title: 'Select PDF',
+      filters: [{ name: 'PDF', extensions: ['pdf'] }],
+      properties: ['openFile'],
+    })
+    if (canceled || !filePaths.length) return { canceled: true }
+    const fp = filePaths[0]
+    const buf = await fs.promises.readFile(fp)
+    headerFooterSource = { buf, name: path.basename(fp, path.extname(fp)) }
+    headerFooterResult = null
+    return { canceled: false, name: path.basename(fp), size: buf.length, data: Array.from(buf) }
+  })
+
+  // Draw up to six text slots (header/footer × left/center/right) on every page.
+  // Tokens {page} {pages} {date} are substituted per page. Same drawText engine as page numbers.
+  // options: { header:{left,center,right}, footer:{left,center,right}, fontSize, margin, skipFirst }
+  ipcMain.handle('pdf-headerfooter-apply', async (_e, { options }) => {
+    try {
+      if (!headerFooterSource) return { success: false, error: 'No PDF loaded.' }
+      const o = options ?? {}
+      const doc = await PDFDocument.load(headerFooterSource.buf)
+      const pages = doc.getPages()
+      const total = pages.length
+      const fontSize = Math.max(6, Math.min(72, o.fontSize ?? 10))
+      const margin = Math.max(0, o.margin ?? 28)
+      const skipFirst = !!o.skipFirst
+      const font = await doc.embedFont(StandardFonts.Helvetica)
+      const dateStr = new Date().toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })
+      const slots = [['header', 'left'], ['header', 'center'], ['header', 'right'], ['footer', 'left'], ['footer', 'center'], ['footer', 'right']]
+      const slotText = (row, align) => (o[row] && o[row][align]) ? String(o[row][align]) : ''
+
+      let drew = 0
+      for (let i = 0; i < total; i++) {
+        if (skipFirst && i === 0) continue
+        const page = pages[i]
+        const { width, height } = page.getSize()
+        const th = font.heightAtSize(fontSize)
+        for (const [row, align] of slots) {
+          const raw = slotText(row, align)
+          if (!raw) continue
+          const text = raw.replaceAll('{page}', String(i + 1)).replaceAll('{pages}', String(total)).replaceAll('{date}', dateStr)
+          const tw = font.widthOfTextAtSize(text, fontSize)
+          let x
+          if (align === 'left') x = margin
+          else if (align === 'right') x = width - margin - tw
+          else x = (width - tw) / 2
+          const y = row === 'header' ? height - margin - th : margin
+          page.drawText(text, { x, y, size: fontSize, font, color: rgb(0, 0, 0) })
+          drew++
+        }
+      }
+      if (drew === 0) return { success: false, error: 'Add some header or footer text first.' }
+      headerFooterResult = await doc.save()
+      return { success: true }
+    } catch (e) {
+      return { success: false, error: e.message }
+    }
+  })
+
+  ipcMain.handle('pdf-headerfooter-save', async () => {
+    if (!headerFooterResult) return { canceled: true }
+    const base = headerFooterSource ? headerFooterSource.name : 'header-footer'
+    const { canceled, filePath } = await dialog.showSaveDialog(mainWindow, {
+      title: 'Save PDF',
+      defaultPath: `${base}-labeled.pdf`,
+      filters: [{ name: 'PDF', extensions: ['pdf'] }],
+    })
+    if (canceled || !filePath) return { canceled: true }
+    await fs.promises.writeFile(filePath, headerFooterResult)
+    return { canceled: false, filePath }
+  })
 }
 
 module.exports = { registerPdfConvertHandlers }

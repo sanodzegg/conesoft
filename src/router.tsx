@@ -25,6 +25,7 @@ const PdfSplit = lazy(() => import('./pages/pdf-split'))
 const PdfHub = lazy(() => import('./pages/pdf-hub'))
 const PdfCompress = lazy(() => import('./pages/pdf-compress'))
 const PdfPageNumbers = lazy(() => import('./pages/pdf-page-numbers'))
+const PdfHeaderFooter = lazy(() => import('./pages/pdf-header-footer'))
 
 function ProRoute({ children }: { children: React.ReactNode }) {
   const { plan } = useAuth()
@@ -66,6 +67,7 @@ export default function Router() {
           <Route path="/extensions/pdf-split" element={<ProRoute><PdfSplit /></ProRoute>} />
           <Route path="/extensions/pdf-compress" element={<ProRoute><PdfCompress /></ProRoute>} />
           <Route path="/extensions/pdf-page-numbers" element={<ProRoute><PdfPageNumbers /></ProRoute>} />
+          <Route path="/extensions/pdf-header-footer" element={<ProRoute><PdfHeaderFooter /></ProRoute>} />
           <Route path="/account" element={<Auth />} />
           <Route path="/pricing" element={<Pricing />} />
       </Routes>
