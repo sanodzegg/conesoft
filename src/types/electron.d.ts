@@ -133,6 +133,18 @@ declare interface Window {
     pdfCompressPick: () => Promise<{ canceled: true } | { canceled: false; name: string; size: number }>
     pdfCompressRun: (opts: { level: 'low' | 'recommended' | 'high' }) => Promise<{ success: boolean; originalSize?: number; compressedSize?: number; images?: number; error?: string }>
     pdfCompressSave: () => Promise<{ canceled: boolean; filePath?: string }>
+    pdfPageNumbersPick: () => Promise<{ canceled: true } | { canceled: false; name: string; size: number; data: number[] }>
+    pdfPageNumbersApply: (opts: {
+      options: {
+        position: 'top-left' | 'top-center' | 'top-right' | 'bottom-left' | 'bottom-center' | 'bottom-right'
+        format: 'n' | 'n-of-total' | 'n-slash-total'
+        fontSize: number
+        margin: number
+        startPage: number
+        startNumber: number
+      }
+    }) => Promise<{ success: boolean; numbered?: number; error?: string }>
+    pdfPageNumbersSave: () => Promise<{ canceled: boolean; filePath?: string }>
 
     // Tray / notifications
     showNotification: (title: string, body: string) => void

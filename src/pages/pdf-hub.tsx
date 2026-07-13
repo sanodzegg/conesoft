@@ -1,5 +1,5 @@
 import { NavLink } from 'react-router-dom'
-import { FileEdit, FilePlus, FileImage, Images, Scissors, Minimize2, ArrowRight } from 'lucide-react'
+import { FileEdit, FilePlus, FileImage, Images, Scissors, Minimize2, Hash, ArrowRight } from 'lucide-react'
 
 type Tool = {
   title: string
@@ -45,6 +45,12 @@ const TOOLS: Tool[] = [
     description: 'Shrink PDF file size by recompressing images and structure.',
     href: '/extensions/pdf-compress',
     icon: <Minimize2 className="size-6" />,
+  },
+  {
+    title: 'Page Numbers',
+    description: 'Add page numbers with control over position and format.',
+    href: '/extensions/pdf-page-numbers',
+    icon: <Hash className="size-6" />,
   },
 ]
 

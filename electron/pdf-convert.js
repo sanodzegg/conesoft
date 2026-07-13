@@ -2,7 +2,7 @@ const { ipcMain, dialog } = require('electron')
 const fs = require('fs')
 const path = require('path')
 const sharp = require('sharp')
-const { PDFDocument, PDFName, PDFRawStream } = require('pdf-lib')
+const { PDFDocument, PDFName, PDFRawStream, StandardFonts, rgb } = require('pdf-lib')
 const { decodeHeic } = require('./convert')
 
 // Image <-> PDF conversions. Kept separate from pdf-tools.js (merge) and pdf-editor.js so the
@@ -336,6 +336,80 @@ function registerPdfConvertHandlers(mainWindow) {
     })
     if (canceled || !filePath) return { canceled: true }
     await fs.promises.writeFile(filePath, compressResult)
+    return { canceled: false, filePath }
+  })
+
+  // ── Page numbers ───────────────────────────────────────────────────────────
+  let pageNumSource = null   // { buf, name }
+  let pageNumResult = null
+
+  ipcMain.handle('pdf-pagenumbers-pick', async () => {
+    const { canceled, filePaths } = await dialog.showOpenDialog(mainWindow, {
+      title: 'Select PDF',
+      filters: [{ name: 'PDF', extensions: ['pdf'] }],
+      properties: ['openFile'],
+    })
+    if (canceled || !filePaths.length) return { canceled: true }
+    const fp = filePaths[0]
+    const buf = await fs.promises.readFile(fp)
+    pageNumSource = { buf, name: path.basename(fp, path.extname(fp)) }
+    pageNumResult = null
+    return { canceled: false, name: path.basename(fp), size: buf.length, data: Array.from(buf) }
+  })
+
+  // Burn page numbers onto each page in range.
+  // options: { position, format: 'n'|'n-of-total'|'n-slash-total', fontSize, margin, startPage, startNumber }
+  ipcMain.handle('pdf-pagenumbers-apply', async (_e, { options }) => {
+    try {
+      if (!pageNumSource) return { success: false, error: 'No PDF loaded.' }
+      const o = options ?? {}
+      const doc = await PDFDocument.load(pageNumSource.buf)
+      const pages = doc.getPages()
+      const total = pages.length
+      const fontSize = Math.max(6, Math.min(72, o.fontSize ?? 11))
+      const margin = Math.max(0, o.margin ?? 28)
+      const startPage = Math.max(1, Math.min(total, o.startPage ?? 1))
+      const startNumber = o.startNumber ?? 1
+      const position = o.position ?? 'bottom-center'
+      const format = o.format ?? 'n'
+      const font = await doc.embedFont(StandardFonts.Helvetica)
+      const isTop = position.startsWith('top')
+      const maxNumber = startNumber + (total - startPage)
+
+      for (let i = startPage - 1; i < total; i++) {
+        const page = pages[i]
+        const num = startNumber + (i - (startPage - 1))
+        const text = format === 'n-of-total' ? `Page ${num} of ${maxNumber}`
+          : format === 'n-slash-total' ? `${num} / ${maxNumber}`
+          : `${num}`
+        const { width, height } = page.getSize()
+        const tw = font.widthOfTextAtSize(text, fontSize)
+        const th = font.heightAtSize(fontSize)
+        let x
+        if (position.endsWith('left')) x = margin
+        else if (position.endsWith('right')) x = width - margin - tw
+        else x = (width - tw) / 2
+        const y = isTop ? height - margin - th : margin // bottom: baseline `margin` up from edge
+        page.drawText(text, { x, y, size: fontSize, font, color: rgb(0, 0, 0) })
+      }
+
+      pageNumResult = await doc.save()
+      return { success: true, numbered: total - startPage + 1 }
+    } catch (e) {
+      return { success: false, error: e.message }
+    }
+  })
+
+  ipcMain.handle('pdf-pagenumbers-save', async () => {
+    if (!pageNumResult) return { canceled: true }
+    const base = pageNumSource ? pageNumSource.name : 'numbered'
+    const { canceled, filePath } = await dialog.showSaveDialog(mainWindow, {
+      title: 'Save PDF',
+      defaultPath: `${base}-numbered.pdf`,
+      filters: [{ name: 'PDF', extensions: ['pdf'] }],
+    })
+    if (canceled || !filePath) return { canceled: true }
+    await fs.promises.writeFile(filePath, pageNumResult)
     return { canceled: false, filePath }
   })
 }

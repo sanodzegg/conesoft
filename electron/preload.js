@@ -85,6 +85,9 @@ contextBridge.exposeInMainWorld('electron', {
   pdfCompressPick: () => ipcRenderer.invoke('pdf-compress-pick'),
   pdfCompressRun: (opts) => ipcRenderer.invoke('pdf-compress-run', opts),
   pdfCompressSave: () => ipcRenderer.invoke('pdf-compress-save'),
+  pdfPageNumbersPick: () => ipcRenderer.invoke('pdf-pagenumbers-pick'),
+  pdfPageNumbersApply: (opts) => ipcRenderer.invoke('pdf-pagenumbers-apply', opts),
+  pdfPageNumbersSave: () => ipcRenderer.invoke('pdf-pagenumbers-save'),
 
   // Tray / notifications
   showNotification: (title, body) => ipcRenderer.send('show-notification', { title, body }),
