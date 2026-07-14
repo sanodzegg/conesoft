@@ -159,6 +159,9 @@ declare interface Window {
     pdfSignPick: () => Promise<{ canceled: true } | { canceled: false; name: string; size: number; data: number[] }>
     pdfSignApply: (opts: { pages: number[]; signature: number[]; xFrac: number; yFrac: number; widthFrac: number }) => Promise<{ success: boolean; count?: number; error?: string }>
     pdfSignSave: () => Promise<{ canceled: boolean; filePath?: string }>
+    pdfCropPick: () => Promise<{ canceled: true } | { canceled: false; name: string; size: number; data: number[] }>
+    pdfCropApply: (opts: { pages: number[]; xFrac: number; yFrac: number; wFrac: number; hFrac: number }) => Promise<{ success: boolean; count?: number; error?: string }>
+    pdfCropSave: () => Promise<{ canceled: boolean; filePath?: string }>
 
     // Tray / notifications
     showNotification: (title: string, body: string) => void

@@ -50,7 +50,7 @@ electron/
   bulk-convert.js      - bulk folder conversion + fs.watch watch mode
   pdf-tools.js         - PDF merge
   pdf-editor.js        - PDF page ops, watermark, form fill, burn annotations
-  pdf-convert.js       - image↔PDF, split/extract, compress, page numbers, header/footer, sign (pdf-lib/sharp)
+  pdf-convert.js       - image↔PDF, split/extract, compress, page numbers, header/footer, sign, crop (pdf-lib/sharp)
   website-pdf.js       - Playwright website→PDF (shares browser w/ screenshot)
   screenshot.js        - Playwright screenshot + owns the shared browser instance
   lighthouse.js        - Lighthouse runner (bundled dep; forks lighthouse-worker.js)
@@ -241,17 +241,17 @@ Tokens are spent via `spendTokens` (reserve up front, `refund()` on failure) in 
     'failed'`) - reserves before export, refunds on cancel (silent) or failure (toast). **Open to
     all plans**, so trial **and** limited are metered (paid ungated).
 - **PDF saves** (editor, merge, images→pdf, pdf→images, split, compress, page-numbers, header/footer,
-  sign) - **document tokens only**, via the `usePdfSaveMeter` hook. `spendTokens` takes an options arg
+  sign, crop) - **document tokens only**, via the `usePdfSaveMeter` hook. `spendTokens` takes an options arg
   `{ cost?, countCategory? }`; PDF saves pass `countCategory:false`, so they spend tokens but do
   **not** bump the per-category "Documents" analytics count (that tally is for actual document
-  *conversions* only). All nine are **session-priced**: the **first save of a session = 5**, **every
+  *conversions* only). All ten are **session-priced**: the **first save of a session = 5**, **every
   later save = 2**, regardless of how much was edited / re-rendered / re-compressed / re-numbered in
-  between. **Nine** module-level flags (`editorSavedOnce` / `mergeSavedOnce` / `imagesToPdfSavedOnce` /
+  between. **Ten** module-level flags (`editorSavedOnce` / `mergeSavedOnce` / `imagesToPdfSavedOnce` /
   `pdfToImagesSavedOnce` / `splitSavedOnce` / `compressSavedOnce` / `pageNumbersSavedOnce` /
-  `headerFooterSavedOnce` / `signSavedOnce`) so the tools don't affect each other's pricing. Each tool
+  `headerFooterSavedOnce` / `signSavedOnce` / `cropSavedOnce`) so the tools don't affect each other's pricing. Each tool
   has matching `reserve*Save()` / `mark*Saved()` / `reset*SaveSession()` fns:
   *Editor:* reset fires when a file is opened/closed (`pdf-editor.tsx`).
-  *Merge / Images→PDF / PDF→Images / Split / Compress / Page-numbers / Header-footer / Sign:* reset
+  *Merge / Images→PDF / PDF→Images / Split / Compress / Page-numbers / Header-footer / Sign / Crop:* reset
   fires on page mount and on Reset - so redoing a different job in the same visit still bills as a
   re-save (2).
   One save = one charge regardless of output fan-out (PDF→Images: single image *or* an N-page zip;
@@ -359,6 +359,12 @@ is the single source of truth for "paid".
   (an RGBA PNG embeds as image + SMask, preserving transparency). Honest copy: it's an electronic
   signature, **not** a certified digital/PKI one (true PKI needs a paid CA cert - deferred).
   `src/pages/pdf-sign.tsx`.
+- **Crop** (`proOnly`) - **drag a rectangle** on the page preview (pdfjs) to mark the area to keep;
+  outside is dimmed with four bands. Apply to **This page** or **All pages**. pdf-lib sets **both**
+  the crop box and media box to the rect so the crop sticks in viewers *and* on re-processing, sized
+  per page from each page's own media box via top-origin fractions (`{xFrac,yFrac,wFrac,hFrac}`).
+  ⚠️ Rotated pages (a `/Rotate` entry) aren't remapped - same known limitation as Sign.
+  `electron/pdf-convert.js` (`pdf-crop-*`) + `src/pages/pdf-crop.tsx`.
 - **Website PDF** / **Website Screenshot** - Playwright; share one browser instance;
   block trackers, scroll to trigger lazy media, replace videos, strip fixed/chat widgets.
 - **Lighthouse** - performance/a11y/best-practices/SEO audit, desktop+mobile in parallel.
@@ -381,10 +387,11 @@ All PDF work is built on the **free, permissively-licensed** stack we already sh
 - Safe to add when their features land: **qpdf** (Apache 2.0 - password/encrypt) and
   **tesseract.js** (Apache 2.0 - on-device OCR, fits the local-first story).
 - **Shipped:** Editor, Merge, Images→PDF, PDF→Images, Split & Extract, Compress, Page Numbers,
-  Header & Footer, Sign - all reached via the **PDF hub** page (single sidebar entry → grid of cards).
-- **Planned** (effort-to-impact order): crop · OCR (tesseract) · password (qpdf). ⚠️ OCR and password
-  each need a **bundled binary/data + electron-builder changes + clean-machine verification** (a
-  different, infra-heavy kind of session than the pure pdf-lib tools above).
+  Header & Footer, Sign, Crop - all reached via the **PDF hub** page (single sidebar entry → grid of cards).
+- **Planned** (effort-to-impact order): OCR (tesseract) · password (qpdf). ⚠️ Both
+  need a **bundled binary/data + electron-builder changes + clean-machine verification** (a
+  different, infra-heavy kind of session than the pure pdf-lib tools above). The pure-pdf-lib well is
+  now essentially dry - Crop was the last tool that shipped in a normal renderer + pdf-lib session.
 - **Deliberately NOT doing** (needs a commercial SDK, or unsafe to do free): layout-preserving
   PDF→Word/Excel (we stay text-only), in-place text editing, true redaction (a fake black-box
   redaction leaves the text underneath - don't ship it until we can remove bytes properly).

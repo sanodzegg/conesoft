@@ -94,6 +94,9 @@ contextBridge.exposeInMainWorld('electron', {
   pdfSignPick: () => ipcRenderer.invoke('pdf-sign-pick'),
   pdfSignApply: (opts) => ipcRenderer.invoke('pdf-sign-apply', opts),
   pdfSignSave: () => ipcRenderer.invoke('pdf-sign-save'),
+  pdfCropPick: () => ipcRenderer.invoke('pdf-crop-pick'),
+  pdfCropApply: (opts) => ipcRenderer.invoke('pdf-crop-apply', opts),
+  pdfCropSave: () => ipcRenderer.invoke('pdf-crop-save'),
 
   // Tray / notifications
   showNotification: (title, body) => ipcRenderer.send('show-notification', { title, body }),

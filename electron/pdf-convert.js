@@ -547,6 +547,65 @@ function registerPdfConvertHandlers(mainWindow) {
     await fs.promises.writeFile(filePath, signResult)
     return { canceled: false, filePath }
   })
+
+  // ── Crop ─────────────────────────────────────────────────────────────────────
+  let cropSource = null   // { buf, name }
+  let cropResult = null
+
+  ipcMain.handle('pdf-crop-pick', async () => {
+    const { canceled, filePaths } = await dialog.showOpenDialog(mainWindow, {
+      title: 'Select PDF',
+      filters: [{ name: 'PDF', extensions: ['pdf'] }],
+      properties: ['openFile'],
+    })
+    if (canceled || !filePaths.length) return { canceled: true }
+    const fp = filePaths[0]
+    const buf = await fs.promises.readFile(fp)
+    cropSource = { buf, name: path.basename(fp, path.extname(fp)) }
+    cropResult = null
+    return { canceled: false, name: path.basename(fp), size: buf.length, data: Array.from(buf) }
+  })
+
+  // Crop each target page to a rectangle given as top-origin fractions of the page's media box:
+  // xFrac/yFrac = the crop rect's top-left, wFrac/hFrac = its size. We set BOTH the crop box and
+  // the media box so the crop "sticks" everywhere (viewers use the crop box; re-processing uses the
+  // media box). Rotated pages (a /Rotate entry) aren't remapped - same known limitation as Sign.
+  ipcMain.handle('pdf-crop-apply', async (_e, { pages, xFrac, yFrac, wFrac, hFrac }) => {
+    try {
+      if (!cropSource) return { success: false, error: 'No PDF loaded.' }
+      if (!(wFrac > 0) || !(hFrac > 0)) return { success: false, error: 'Draw a crop area first.' }
+      const doc = await PDFDocument.load(cropSource.buf)
+      const allPages = doc.getPages()
+      const targets = [...new Set((pages && pages.length ? pages : [1]).map(n => Math.max(1, Math.min(allPages.length, n))))]
+      for (const n of targets) {
+        const page = allPages[n - 1]
+        const mb = page.getMediaBox()
+        const cw = wFrac * mb.width
+        const ch = hFrac * mb.height
+        const cx = mb.x + xFrac * mb.width
+        const cy = mb.y + mb.height - (yFrac + hFrac) * mb.height // flip: renderer sends a top-origin y
+        page.setCropBox(cx, cy, cw, ch)
+        page.setMediaBox(cx, cy, cw, ch)
+      }
+      cropResult = await doc.save()
+      return { success: true, count: targets.length }
+    } catch (e) {
+      return { success: false, error: e.message }
+    }
+  })
+
+  ipcMain.handle('pdf-crop-save', async () => {
+    if (!cropResult) return { canceled: true }
+    const base = cropSource ? cropSource.name : 'cropped'
+    const { canceled, filePath } = await dialog.showSaveDialog(mainWindow, {
+      title: 'Save cropped PDF',
+      defaultPath: `${base}-cropped.pdf`,
+      filters: [{ name: 'PDF', extensions: ['pdf'] }],
+    })
+    if (canceled || !filePath) return { canceled: true }
+    await fs.promises.writeFile(filePath, cropResult)
+    return { canceled: false, filePath }
+  })
 }
 
 module.exports = { registerPdfConvertHandlers }

@@ -1,5 +1,5 @@
 import { NavLink } from 'react-router-dom'
-import { FileEdit, FilePlus, FileImage, Images, Scissors, Minimize2, Hash, Heading, PenTool, Flame, ArrowRight } from 'lucide-react'
+import { FileEdit, FilePlus, FileImage, Images, Scissors, Minimize2, Hash, Heading, PenTool, Crop, Flame, ArrowRight } from 'lucide-react'
 
 type Tool = {
   title: string
@@ -72,6 +72,12 @@ const TOOLS: Tool[] = [
     description: 'Add header and footer text, with page and date placeholders.',
     href: '/extensions/pdf-header-footer',
     icon: <Heading className="size-6" />,
+  },
+  {
+    title: 'Crop',
+    description: 'Trim margins or select an area to keep, on one page or all.',
+    href: '/extensions/pdf-crop',
+    icon: <Crop className="size-6" />,
   },
 ]
 
